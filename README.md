@@ -22,21 +22,6 @@ it can be combined with many other packages (see below).
 
 ### For Users
 
-#### Stable Version
-
-The current stable version can be installed by the following command:
-
-`pip install clustpy`
-
-Note that a gcc compiler is required for installation.
-Therefore, in case of an installation error, make sure that:
-- Windows: [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/de/visual-cpp-build-tools/) is installed
-- Linux: Python dev is installed (e.g., by running `apt-get install python-dev` - the exact command may differ depending on the linux distribution)
-
-The error messages may look like this:
-- 'Could not build wheels for clustpy, which is required to install pyproject.toml-based projects'
-- 'Microsoft Visual C++ 14.0 or greater is required. Get it with "Microsoft C++ Build Tools'
-
 #### Development Version
 
 The current development version can be installed directly from git by executing:
@@ -55,7 +40,7 @@ If you have no sudo rights you can use:
 
 Clone the repository, go to the directory and do the following.
 
-Install package locally and compile C files:
+Install package locally:
 
 `python setup.py install --prefix ~/.local`
 
@@ -72,15 +57,10 @@ Remove clustpy via pip to avoid ambiguities during development, e.g., when chang
 ### Algorithms
 
 - Partition-based clustering
-    - DipExt + DipInit [[Source](https://link.springer.com/chapter/10.1007/978-3-030-67658-2_6)]
-    - Dip-Means [[Source](https://proceedings.neurips.cc/paper/2012/hash/a8240cb8235e9c493a0c30607586166c-Abstract.html)]
-    - Dip'n'sub [[Source](https://epubs.siam.org/doi/abs/10.1137/1.9781611977653.ch13)]
     - GapStatistic [[Source](https://rss.onlinelibrary.wiley.com/doi/abs/10.1111/1467-9868.00293)]
     - G-Means [[Source](https://proceedings.neurips.cc/paper/2003/hash/234833147b97bb6aed53a8f4f1c7a7d8-Abstract.html)]
     - LDA-K-Means [[Source](https://dl.acm.org/doi/abs/10.1145/1273496.1273562)]
     - PG-Means [[Source](https://proceedings.neurips.cc/paper/2006/hash/a9986cb066812f440bc2bb6e3c13696c-Abstract.html)]
-    - Projected Dip-Means [[Source](https://dl.acm.org/doi/abs/10.1145/3200947.3201008)]
-    - SkinnyDip + UniDip [[Source](https://dl.acm.org/doi/abs/10.1145/2939672.2939740)] & TailoredDip [[Source](https://epubs.siam.org/doi/abs/10.1137/1.9781611977653.ch13)]
     - SubKmeans [[Source](https://dl.acm.org/doi/abs/10.1145/3097983.3097989)]
     - X-Means [[Source](https://web.cs.dal.ca/~shepherd/courses/csci6403/clustering/xmeans.pdf)]
 - Density-based clustering
@@ -98,8 +78,6 @@ Remove clustpy via pip to avoid ambiguities during development, e.g., when chang
         - Variational Autoencoder [[Source](https://arxiv.org/abs/1312.6114)]
     - DCN [[Source](https://dl.acm.org/doi/abs/10.5555/3305890.3306080)]
     - DEC [[Source](https://dl.acm.org/doi/abs/10.5555/3045390.3045442)]
-    - DipDECK [[Source](https://dl.acm.org/doi/10.1145/3447548.3467316)]
-    - DipEncoder [[Source](https://dl.acm.org/doi/10.1145/3534678.3539407)]
     - ENRC [[Source](https://ojs.aaai.org/index.php/AAAI/article/view/5961)]
     - IDEC [[Source](https://dl.acm.org/doi/abs/10.5555/3172077.3172131)]
     - VaDE [[Source](https://dl.acm.org/doi/abs/10.5555/3172077.3172161)]
@@ -174,7 +152,7 @@ from clustpy.partition import SubKmeans
 from clustpy.data import create_subspace_data
 from clustpy.metrics import unsupervised_clustering_accuracy as acc
 
-data, labels = create_subspace_data(1000, n_clusters=4, subspace_features=[2,5])
+data, labels = create_subspace_data(1000, n_clusters=4, subspace_features=[2, 5])
 sk = SubKmeans(4)
 sk.fit(data)
 acc_res = acc(labels, sk.labels_)
@@ -230,8 +208,10 @@ which automatically run the specified algorithms multiple times on previously de
 All results of the given metrics are stored in a Pandas dataframe.
 
 ```python
-from clustpy.utils import EvaluationDataset, EvaluationAlgorithm, EvaluationMetric, evaluate_multiple_datasets
-from clustpy.partition import ProjectedDipMeans, SubKmeans
+from clustpy.utils import EvaluationDataset, EvaluationAlgorithm, EvaluationMetric,
+
+evaluate_multiple_datasets
+from clustpy.partition import SubKmeans
 from sklearn.metrics import normalized_mutual_info_score as nmi, silhouette_score
 from sklearn.cluster import KMeans, DBSCAN
 from clustpy.data import load_breast_cancer, load_iris, load_wine
@@ -239,16 +219,20 @@ from clustpy.metrics import unsupervised_clustering_accuracy as acc
 from sklearn.decomposition import PCA
 import numpy as np
 
+
 def reduce_dimensionality(X, dims):
     pca = PCA(dims)
     X_new = pca.fit_transform(X)
     return X_new
 
+
 def znorm(X):
     return (X - np.mean(X)) / np.std(X)
 
+
 def minmax(X):
     return (X - np.min(X)) / (np.max(X) - np.min(X))
+
 
 datasets = [
     EvaluationDataset("Breast_pca_znorm", data=load_breast_cancer, preprocess_methods=[reduce_dimensionality, znorm],
@@ -260,7 +244,6 @@ datasets = [
 
 algorithms = [
     EvaluationAlgorithm("SubKmeans", SubKmeans, {"n_clusters": None}),
-    EvaluationAlgorithm("pdipmeans", ProjectedDipMeans, {}),  # Determines n_clusters automatically
     EvaluationAlgorithm("dbscan", DBSCAN, {"eps": 0.01, "min_samples": 5}, preprocess_methods=minmax,
                         deterministic=True),
     EvaluationAlgorithm("kmeans", KMeans, {"n_clusters": None}),

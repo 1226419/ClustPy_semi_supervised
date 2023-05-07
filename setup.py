@@ -9,9 +9,6 @@ def _load_readme():
     return readme
 
 
-dip_extension = Extension('clustpy.utils.dipModule',
-                          include_dirs=[np.get_include()],
-                          sources=['clustpy/utils/dip.c'])
 
 setup(
     name='clustpy',
@@ -36,5 +33,4 @@ setup(
                       'xlrd',
                       'Pillow',
                       'nltk'],
-    ext_modules=[dip_extension]
 )
