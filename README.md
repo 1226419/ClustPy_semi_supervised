@@ -26,7 +26,7 @@ it can be combined with many other packages (see below).
 
 The current development version can be installed directly from git by executing:
 
-`sudo pip install git+https://github.com/collinleiber/ClustPy.git`
+`sudo pip install git+https://github.com/1226419/ClustPy_semi_supervised.git`
 
 Alternatively, clone the repository, go to the directory and execute:
 
@@ -95,7 +95,6 @@ Remove clustpy via pip to avoid ambiguities during development, e.g., when chang
     - Variation of information [[Source](https://link.springer.com/chapter/10.1007/978-3-540-45167-9_14)]
 - Utils
     - Automatic evaluation methods
-    - Hartigans Dip-test [[Source](https://www.jstor.org/stable/2241144)]
     - Various plots
 - Datasets
     - Synthetic dataset creators for subspace and alternative clustering 
@@ -236,7 +235,7 @@ def minmax(X):
 
 datasets = [
     EvaluationDataset("Breast_pca_znorm", data=load_breast_cancer, preprocess_methods=[reduce_dimensionality, znorm],
-                      preprocess_params=[{"dims": 0.9}, {}], ignore_algorithms=["pdipmeans"]),
+                      preprocess_params=[{"dims": 0.9}, {}]),
     EvaluationDataset("Iris_pca", data=load_iris, preprocess_methods=reduce_dimensionality,
                       preprocess_params={"dims": 0.9}),
     EvaluationDataset("Wine", data=load_wine),

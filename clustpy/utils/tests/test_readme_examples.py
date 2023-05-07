@@ -40,7 +40,7 @@ def test_example_3():
 
 def test_example_4():
     from clustpy.utils import EvaluationDataset, EvaluationAlgorithm, EvaluationMetric, evaluate_multiple_datasets
-    from clustpy.partition import ProjectedDipMeans, SubKmeans
+    from clustpy.partition import  SubKmeans
     from sklearn.metrics import normalized_mutual_info_score as nmi, silhouette_score
     from sklearn.cluster import KMeans, DBSCAN
     from clustpy.data import load_breast_cancer, load_iris, load_wine
@@ -61,7 +61,7 @@ def test_example_4():
 
     datasets = [
         EvaluationDataset("Breast_pca_znorm", data=load_breast_cancer, preprocess_methods=[reduce_dimensionality, znorm],
-                          preprocess_params=[{"dims": 0.9}, {}], ignore_algorithms=["pdipmeans"]),
+                          preprocess_params=[{"dims": 0.9}, {}]),
         EvaluationDataset("Iris_pca", data=load_iris, preprocess_methods=reduce_dimensionality,
                           preprocess_params={"dims": 0.9}),
         EvaluationDataset("Wine", data=load_wine),
@@ -69,7 +69,6 @@ def test_example_4():
 
     algorithms = [
         EvaluationAlgorithm("SubKmeans", SubKmeans, {"n_clusters": None}),
-        EvaluationAlgorithm("pdipmeans", ProjectedDipMeans, {}),  # Determines n_clusters automatically
         EvaluationAlgorithm("dbscan", DBSCAN, {"eps": 0.01, "min_samples": 5}, preprocess_methods=minmax,
                             deterministic=True),
         EvaluationAlgorithm("kmeans", KMeans, {"n_clusters": None}),
