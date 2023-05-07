@@ -12,7 +12,7 @@ class EarlyStopping():
         how many epochs to wait before stopping when loss is not improving (default=10)
     min_delta : float
         minimum difference between new loss and old loss for new loss to be considered as an improvement (default=1e-4)
-    verbose : bool
+    debug : bool
         if True will print INFO statements (default=False)
     
     Attributes
@@ -25,10 +25,10 @@ class EarlyStopping():
         indicating whether to stop training or not
     """
 
-    def __init__(self, patience: int = 10, min_delta: float = 1e-4, verbose: bool = False):
+    def __init__(self, patience: int = 10, min_delta: float = 1e-4, debug: bool = False):
         self.patience = patience
         self.min_delta = min_delta
-        self.verbose = verbose
+        self.debug = debug
 
         self.counter = 0
         self.best_loss = None
@@ -52,7 +52,7 @@ class EarlyStopping():
             self.counter = 0
         elif self.best_loss - val_loss < self.min_delta:
             self.counter += 1
-            if self.verbose:
+            if self.debug:
                 print(f"INFO: Early stopping counter {self.counter} of {self.patience}")
             if self.counter >= self.patience:
                 self.early_stop = True
