@@ -4,7 +4,7 @@ import time
 from sklearn.utils import check_random_state
 from sklearn.base import ClusterMixin
 from collections.abc import Callable
-
+import traceback
 
 def _preprocess_dataset(X: np.ndarray, preprocess_methods: list, preprocess_params: list) -> np.ndarray:
     """
@@ -78,7 +78,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                      labels_true: np.ndarray = None, n_repetitions: int = 10,
                      aggregation_functions: list = [np.mean, np.std], add_runtime: bool = True,
                      add_n_clusters: bool = False, save_path: str = None, ignore_algorithms: list = [],
-                     random_state: np.random.RandomState = None) -> pd.DataFrame:
+                     random_state: np.random.RandomState = None, y=None) -> pd.DataFrame:
     """
     Evaluate the clustering result of different clustering algorithms (as specified by evaluation_algorithms) on a given data set using different metrics (as specified by evaluation_metrics).
     Each algorithm will be executed n_repetitions times and all specified metrics will be used to evaluate the clustering result.
@@ -108,6 +108,8 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
         List of algorithm names (as specified in the EvaluationAlgorithm object) that should be ignored for this specific data set (default: [])
     random_state : np.random.RandomState
         use a fixed random state to get a repeatable solution. Can also be of type int (default: None)
+    y : np.ndarray
+        initial labels used for semisupervised clustering
 
     Returns
     -------
@@ -192,9 +194,13 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 start_time = time.time()
                 algo_obj = eval_algo.algorithm(**eval_algo.params)
                 try:
-                    algo_obj.fit(X_processed)
+                    if y is not None:
+                        algo_obj.fit(X_processed, y)
+                    else:
+                        algo_obj.fit(X_processed)
                 except Exception as e:
                     print("Execution of {0} raised an exception in iteration {1}".format(eval_algo.name, rep))
+                    print(traceback.print_exc())
                     print(e)
                     continue
                 runtime = time.time() - start_time
@@ -388,7 +394,8 @@ class EvaluationDataset():
         If only a single preprocessing method is given (instead of a list) a single dictionary is expected (default: {})
     ignore_algorithms : list
         List of algorithm names (as specified in the EvaluationAlgorithm object) that should be ignored for this specific data set (default: [])
-
+    y : np.ndarray
+        initial labels used for semisupervised clustering
     Examples
     ----------
     See evaluate_multiple_datasets()
@@ -400,7 +407,7 @@ class EvaluationDataset():
     """
 
     def __init__(self, name: str, data: np.ndarray, labels_true: np.ndarray = None, file_reader_params: dict = {},
-                 preprocess_methods: list = None, preprocess_params: list = {}, ignore_algorithms: list = []):
+                 preprocess_methods: list = None, preprocess_params: list = {}, ignore_algorithms: list = [], y=None):
         assert type(name) is str, "name must be a string"
         self.name = name
         assert type(data) is np.ndarray or type(data) is str or callable(data), "data must be a numpy array, a string " \
@@ -420,6 +427,8 @@ class EvaluationDataset():
         self.preprocess_params = preprocess_params
         assert type(ignore_algorithms) is list, "ignore_algorithms must be a list"
         self.ignore_algorithms = ignore_algorithms
+        assert y is None or type(y) is np.ndarray, "y must be a numpy array or None"
+        self.y = y
 
 
 class EvaluationMetric():
