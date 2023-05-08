@@ -212,7 +212,7 @@ class _ACeDeC_Module(torch.nn.Module):
             if i < len(self.centers) - 1:
                 assert len(centers_i) > 1, "Each cluster space should have more than one cluster"
                 # getting the distances to the cluster centers and weigh them by the betas
-                weighted_squared_diff = squared_euclidean_distance(tensor1=centers_i.detach(), tensor2=z_rot,
+                weighted_squared_diff = squared_euclidean_distance(tensor1=z_rot, tensor2=centers_i.detach(),
                                                                    weights=subspace_betas[i, :])
                 weighted_squared_diff /= z_rot.shape[0]
                 assignments = weighted_squared_diff.detach().argmin(1)
@@ -230,7 +230,7 @@ class _ACeDeC_Module(torch.nn.Module):
             else:
                 assert len(centers_i) == 1, "Noise subspace should only have one cluster"
 
-                weighted_squared_diff = squared_euclidean_distance(tensor1=centers_i.detach(), tensor2=z_rot,
+                weighted_squared_diff = squared_euclidean_distance(tensor1=z_rot, tensor2=centers_i.detach(),
                                                                    weights=subspace_betas[i, :])
                 weighted_squared_diff /= z_rot.shape[0]
                 subspace_losses += weighted_squared_diff.sum()

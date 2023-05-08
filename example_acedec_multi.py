@@ -10,6 +10,11 @@ from copy import deepcopy
 print("Banknote multiple test runs")
 data, labels = load_banknotes()
 
+
+def znorm(X):
+    return (X - np.mean(X)) / np.std(X)
+
+
 #data, labels = load_mnist()
 
 percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
@@ -21,7 +26,7 @@ for percentage in percentages_of_unlabeled_data:
     semi_supervised_labels[np.random.choice(len(labels), int(len(labels) * percentage), replace=False)] = -1
     datasets.append(EvaluationDataset("Banknotes_"+str(int((1.0-percentage)*100))+ "_percent_labeled", data,
                                       labels_true=labels,
-                                      y=semi_supervised_labels))
+                                      y=semi_supervised_labels, preprocess_methods=znorm))
 
 
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
