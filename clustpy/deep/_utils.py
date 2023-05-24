@@ -18,6 +18,7 @@ def set_torch_seed(random_state: np.random.RandomState) -> None:
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
+    seed = int(seed) #because random.seed does not accept numpy.uint32
     random.seed(seed)
 
 

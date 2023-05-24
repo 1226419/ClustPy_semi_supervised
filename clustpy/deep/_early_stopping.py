@@ -13,7 +13,9 @@ class EarlyStopping():
     min_delta : float
         minimum difference between new loss and old loss for new loss to be considered as an improvement (default=1e-4)
     debug : bool
-        if True will print INFO statements (default=False)
+        if True will print INFO statements (default=Fals
+
+        e)
     
     Attributes
     ----------

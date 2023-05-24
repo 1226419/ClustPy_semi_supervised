@@ -91,40 +91,54 @@ class _ACeDeC_Module(torch.nn.Module):
         """Returns a len(P) x d matrix with softmax weights, where d is the number of dimensions of the embedded space, indicating
            which dimensions belongs to which clustering.
         """
-        return torch.nn.functional.softmax(self.beta_weights, dim=0)
+        dimension_assignments = torch.nn.functional.softmax(self.beta_weights, dim=0)
+        return dimension_assignments
 
     def get_P(self):
-        """Converts the soft beta weights back to hard assignments P and returns them as a list.
-
-        Returns
-        ----------
-        P : list,  list containing indices for projections for each clustering
         """
-        return _get_P(betas=self.subspace_betas().detach().cpu(), centers=self.centers)
-
-    def rotate(self, z):
-        """
-        Parameters
-        ----------
-        z : torch.tensor, embedded data point, can also be a mini-batch of points
+        Converts the soft beta weights back to hard assignments P and returns them as a list.
 
         Returns
         -------
-        z_rot : the rotated embedded data point
+        P : list
+            list containing indices for projections for each clustering
         """
-        return _rotate(z, self.V)
+        P = _get_P(betas=self.subspace_betas().detach().cpu(), centers=self.centers)
+        return P
 
-    def rotate_back(self, z_rot):
+    def rotate(self, z: torch.Tensor) -> torch.Tensor:
         """
+        Rotate the embedded data ponint z using the orthogonal rotation matrix V.
+
         Parameters
         ----------
-        z_rot : torch.tensor, rotated and embedded data point, can also be a mini-batch of points
+        z : torch.Tensor
+            embedded data point, can also be a mini-batch of points
 
         Returns
         -------
-        z : the back-rotated embedded data point
+        z_rot : torch.Tensor
+            the rotated embedded data point
         """
-        return _rotate_back(z_rot, self.V)
+        z_rot = _rotate(z, self.V)
+        return z_rot
+
+    def rotate_back(self, z_rot: torch.Tensor) -> torch.Tensor:
+        """
+        Rotate a rotated embedded data point back to its original state.
+
+        Parameters
+        ----------
+        z_rot : torch.Tensor
+            rotated and embedded data point, can also be a mini-batch of points
+
+        Returns
+        -------
+        z : torch.Tensor
+            the back-rotated embedded data point
+        """
+        z = _rotate_back(z_rot, self.V)
+        return z
 
     # TODO: implement labels
     def update_center(self, data, one_hot_mask, subspace_id, labels, epoch_i):

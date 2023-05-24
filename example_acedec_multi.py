@@ -32,25 +32,16 @@ for percentage in percentages_of_unlabeled_data:
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 # datasets = [ EvaluationDataset("Banknotes", load_banknotes), EvaluationDataset("Iris", load_iris),
 # EvaluationDataset("MNIST", load_mnist)]
-small_autoencoder = FlexibleAutoencoder(layers=[4, 32, 8]).fit(n_epochs=100, lr=1e-3, data=data)
+small_autoencoder = FlexibleAutoencoder(layers=[4, 32, 8], reusable=False).fit(n_epochs=100, lr=1e-3, data=data)
 medium_autoencoder = FlexibleAutoencoder(layers=[4, 126, 64, 32, 8]).fit(n_epochs=100, lr=1e-3, data=data)
 algorithmns = [
-    EvaluationAlgorithm("ACEDEC_small_autoencoder", ACEDEC, {"n_clusters": [2], "autoencoder": deepcopy(
-        small_autoencoder),
-                         "debug":False, "clustering_epochs":10, "print_step": 50}),
-    EvaluationAlgorithm("ACEDEC_small_autoencoder_100", ACEDEC, {"n_clusters": [2], "autoencoder": deepcopy(
-        small_autoencoder),  "debug": False,  "clustering_epochs": 100,
-                                                                  "print_step": 50}),
-    EvaluationAlgorithm("ACEDEC_small_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder": deepcopy(
-        small_autoencoder),
+
+    EvaluationAlgorithm("ACEDEC_small_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder":
+        small_autoencoder,
                                                               "debug": False, "clustering_epochs": 1000,
                                                                    "print_step": 50}),
-    EvaluationAlgorithm("ACEDEC_med_autoencoder_100", ACEDEC, {"n_clusters": [2], "autoencoder": deepcopy(
-        medium_autoencoder),
-                                                              "debug": False, "clustering_epochs": 100,
-                                                                "print_step": 50}),
-    EvaluationAlgorithm("ACEDEC_med_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder": deepcopy(
-        medium_autoencoder),
+    EvaluationAlgorithm("ACEDEC_med_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder":
+        medium_autoencoder,
                                                               "debug": False,  "clustering_epochs": 1000,
                                                                  "print_step": 50})
 
@@ -64,6 +55,6 @@ metrics = [EvaluationMetric("NMI", nmi)]
 
 
 df = evaluate_multiple_datasets(datasets, algorithmns, metrics, n_repetitions=5, aggregation_functions=[np.mean],
-    add_runtime=False, add_n_clusters=False, save_path="evaluation_14_04_deepcopy_2.csv",
+    add_runtime=False, add_n_clusters=False, save_path="evaluation_09_05_deepcopy_4.csv",
                                 save_intermediate_results=False)
 print(df)
