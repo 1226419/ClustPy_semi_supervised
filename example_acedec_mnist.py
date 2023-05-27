@@ -46,7 +46,7 @@ dec = ACEDEC([10], autoencoder=conv_autoencoder, verbose=True, pretrain_epochs=2
 # randomly assign some values of labels array to -1
 semi_supervised_labels = labels.copy()
 # percentage 1.0 is unsupervised, 0.0 is supervised
-percentage = 0.6
+percentage = 0.0
 semi_supervised_labels[np.random.choice(len(labels), int(len(labels)*percentage), replace=False)] = -1
 print("acedec created")
 # semi-supervised fit

@@ -645,7 +645,8 @@ def acedec_init(n_samples, y, embedded_data, n_clusters, init="auto", rounds=10,
     # TODO check if the label_calculated_centers are changed too much in the enrc_init
     # TODO if multilabel betas can't be calculated and there is a slight difference in beta init from enrc and acedec
     if input_centers is not None and debug:
-        plot_2d_data(embedded_data, y, input_centers, title="before enrc_init")
+        plot_2d_data(embedded_data, y, input_centers[0], title="before enrc_init") # only plot first label dim (There
+        # is only one for now.
     input_centers, P, V, beta_weights = enrc_init(data=embedded_data, n_clusters=n_clusters,
                                                   device=device, init=init,
                                                   rounds=rounds, epochs=epochs, batch_size=batch_size, debug=debug,
@@ -653,7 +654,7 @@ def acedec_init(n_samples, y, embedded_data, n_clusters, init="auto", rounds=10,
                                                   max_iter=max_iter, learning_rate=learning_rate,
                                                   optimizer_class=optimizer_class, init_kwargs=init_kwargs)
     if debug:
-        plot_2d_data(embedded_data@V, y, input_centers, title="after enrc_init")
+        plot_2d_data(embedded_data@V, y, input_centers[0], title="after enrc_init")
     return input_centers, P, V, beta_weights
 
 

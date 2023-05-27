@@ -193,6 +193,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 # Execute algorithm
                 start_time = time.time()
                 algo_obj = eval_algo.algorithm(**eval_algo.params)
+                print("labels", y)
                 try:
                     if y is not None:
                         algo_obj.fit(X_processed, y)
@@ -359,7 +360,8 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
                                   labels_true=labels_true,
                                   n_repetitions=n_repetitions, aggregation_functions=aggregation_functions,
                                   add_runtime=add_runtime, add_n_clusters=add_n_clusters, save_path=inner_save_path,
-                                  ignore_algorithms=eval_data.ignore_algorithms, random_state=random_state)
+                                  ignore_algorithms=eval_data.ignore_algorithms, random_state=random_state,
+                                  y=eval_data.y)
             df_list.append(df)
         except Exception as e:
             print("Dataset {0} raised an exception and will be skipped".format(eval_data.name))

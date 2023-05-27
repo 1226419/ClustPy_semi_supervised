@@ -17,8 +17,8 @@ def znorm(X):
 
 #data, labels = load_mnist()
 
-percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-
+# percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+percentages_of_unlabeled_data = [0.0, 1.0]
 datasets = []
 data, labels = load_banknotes()
 for percentage in percentages_of_unlabeled_data:
@@ -42,7 +42,7 @@ algorithmns = [
                                                                    "print_step": 50}),
     EvaluationAlgorithm("ACEDEC_med_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder":
         medium_autoencoder,
-                                                              "debug": False,  "clustering_epochs": 1000,
+                                                              "debug": True,  "clustering_epochs": 1000,
                                                                  "print_step": 50})
 
 ]
