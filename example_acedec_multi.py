@@ -17,8 +17,8 @@ def znorm(X):
 
 #data, labels = load_mnist()
 
-# percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
-percentages_of_unlabeled_data = [0.0, 1.0]
+percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+# percentages_of_unlabeled_data = [0.0, 1.0]
 datasets = []
 data, labels = load_banknotes()
 for percentage in percentages_of_unlabeled_data:
@@ -32,17 +32,17 @@ for percentage in percentages_of_unlabeled_data:
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 # datasets = [ EvaluationDataset("Banknotes", load_banknotes), EvaluationDataset("Iris", load_iris),
 # EvaluationDataset("MNIST", load_mnist)]
-small_autoencoder = FlexibleAutoencoder(layers=[4, 32, 8], reusable=False).fit(n_epochs=100, lr=1e-3, data=data)
-medium_autoencoder = FlexibleAutoencoder(layers=[4, 126, 64, 32, 8]).fit(n_epochs=100, lr=1e-3, data=data)
+small_autoencoder = FlexibleAutoencoder(layers=[4, 32, 8], reusable=True).fit(n_epochs=100, lr=1e-3, data=data)
+medium_autoencoder = FlexibleAutoencoder(layers=[4, 126, 64, 32, 8], reusable=True).fit(n_epochs=100, lr=1e-3, data=data)
 algorithmns = [
 
     EvaluationAlgorithm("ACEDEC_small_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder":
         small_autoencoder,
-                                                              "debug": False, "clustering_epochs": 1000,
+                                                              "debug": False, "clustering_epochs": 5000,
                                                                    "print_step": 50}),
     EvaluationAlgorithm("ACEDEC_med_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder":
         medium_autoencoder,
-                                                              "debug": True,  "clustering_epochs": 1000,
+                                                              "debug": False,  "clustering_epochs": 5000,
                                                                  "print_step": 50})
 
 ]
