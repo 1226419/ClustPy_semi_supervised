@@ -1,7 +1,7 @@
-from cluspy.deep.acedec import ACEDEC
-from cluspy.data import load_mnist, load_iris, load_banknotes, load_fmnist
+from clustpy.deep.acedec import ACEDEC
+from clustpy.data import load_mnist, load_iris, load_banknotes, load_fmnist
 from sklearn.metrics import adjusted_rand_score as ari
-from cluspy.deep.convolutional_autoencoder import ConvolutionalAutoencoder
+from clustpy.deep.autoencoders.convolutional_autoencoder import ConvolutionalAutoencoder
 import numpy as np
 import torch
 print("Hi World")

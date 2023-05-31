@@ -55,6 +55,6 @@ metrics = [EvaluationMetric("NMI", nmi)]
 
 
 df = evaluate_multiple_datasets(datasets, algorithmns, metrics, n_repetitions=5, aggregation_functions=[np.mean],
-    add_runtime=False, add_n_clusters=False, save_path="evaluation_09_05_deepcopy_4.csv",
+    add_runtime=False, add_n_clusters=False, save_path="evaluation_31_05_deepcopy_1.csv",
                                 save_intermediate_results=False)
 print(df)
