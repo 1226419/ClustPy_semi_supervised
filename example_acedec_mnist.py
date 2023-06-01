@@ -29,10 +29,8 @@ if torch.cuda.is_available():
 else:
     device = torch.device('cpu')
 check_if_data_is_normalized(data)
-zdata = znorm(data)
-check_if_data_is_normalized(zdata)
-minmaxdata = minmax(data)
-check_if_data_is_normalized(minmaxdata)
+data = znorm(data)
+
 print(device)
 conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=10,
                                                                                                 lr=1e-3, data=data,
