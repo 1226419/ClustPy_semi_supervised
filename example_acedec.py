@@ -4,6 +4,7 @@ from sklearn.metrics import adjusted_rand_score as ari
 from sklearn.metrics import normalized_mutual_info_score as nmi
 from clustpy.deep.autoencoders.flexible_autoencoder import FlexibleAutoencoder
 import numpy as np
+from clustpy.deep._data_utils import check_if_data_is_normalized
 print("Hi World")
 data, labels = load_banknotes()
 print(labels)
@@ -11,6 +12,16 @@ print(labels)
 
 def znorm(X):
     return (X - np.mean(X)) / np.std(X)
+
+def minmax(X):
+    return (X - np.min(X)) / (np.max(X) - np.min(X))
+
+check_if_data_is_normalized(data)
+zdata = znorm(data)
+check_if_data_is_normalized(zdata)
+minmaxdata = minmax(data)
+check_if_data_is_normalized(minmaxdata)
+
 data = znorm(data)
 
 

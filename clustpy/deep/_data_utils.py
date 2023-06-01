@@ -117,3 +117,28 @@ def get_dataloader(X: np.ndarray, batch_size: int, shuffle: bool = True, drop_la
         drop_last=drop_last,
         **dl_kwargs)
     return dataloader
+
+
+def check_if_data_is_normalized(X):
+
+    if X.min() < 0.0:
+        print("negative data values found")
+
+    if (X.max() <= 1.0) and (X.min() >= 0.0):
+        print("probable MinMax normalized data detected")
+        return True
+
+    if (X.mean() <= 0.1) and (X.mean() >= -0.1) and (X.std() >= 0.9) and (X.std() <= 1.1):
+        print("probable z-normalized data detected")
+        return True
+
+    if (X.max() > 100) and (X.min() == 0.0):
+        print("Data was probably not normalised - make sure you performed a normalisation")
+        return False
+
+    print("Normalization check was inconclusive - make sure your data is normalised")
+    print("mean", X.mean())
+    print("std", X.std())
+    print("max", X.max())
+    print("min", X.min())
+    return False

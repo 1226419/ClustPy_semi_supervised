@@ -2,10 +2,15 @@ from clustpy.deep.acedec import ACEDEC
 from clustpy.data import load_mnist, load_iris, load_banknotes, load_fmnist
 from sklearn.metrics import adjusted_rand_score as ari
 from clustpy.deep.autoencoders.convolutional_autoencoder import ConvolutionalAutoencoder
+from clustpy.deep._data_utils import check_if_data_is_normalized
 import numpy as np
 import torch
 print("Hi World")
+def znorm(X):
+    return (X - np.mean(X)) / np.std(X)
 
+def minmax(X):
+    return (X - np.min(X)) / (np.max(X) - np.min(X))
 
 data, labels = load_mnist()
 print(data)
@@ -23,9 +28,13 @@ if torch.cuda.is_available():
 
 else:
     device = torch.device('cpu')
-
+check_if_data_is_normalized(data)
+zdata = znorm(data)
+check_if_data_is_normalized(zdata)
+minmaxdata = minmax(data)
+check_if_data_is_normalized(minmaxdata)
 print(device)
-conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=100,
+conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=10,
                                                                                                 lr=1e-3, data=data,
                                                                                                 device=device)
 
@@ -34,7 +43,7 @@ conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
 # https://discuss.pytorch.org/t/what-does-model-eval-do-for-batchnorm-layer/7146
 
 print("Convolutional Autoencoder created")
-dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=1000, print_step=50,
+dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=10, print_step=50,
              device=device)
 # supervised fit
 #dec.fit(data, labels)
