@@ -69,7 +69,7 @@ def _kmeans_plus_plus(X: np.ndarray, n_clusters: int, x_squared_norms: np.ndarra
 """
 Defines the numerical error that is accepted to consider a matrix as orthogonal or symmetric.
 """
-_ACCEPTED_NUMERICAL_ERROR = 1e-6
+_ACCEPTED_NUMERICAL_ERROR = 1e-4
 
 
 def _nrkmeans(X: np.ndarray, n_clusters: list, V: np.ndarray, m: list, P: list, centers: list, mdl_for_noisespace: bool,
