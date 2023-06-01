@@ -1,6 +1,7 @@
 from clustpy.deep.acedec import ACEDEC
 from clustpy.data import load_mnist, load_iris, load_banknotes, load_fmnist
 from sklearn.metrics import adjusted_rand_score as ari
+from sklearn.metrics import normalized_mutual_info_score as nmi
 from clustpy.deep.autoencoders.convolutional_autoencoder import ConvolutionalAutoencoder
 from clustpy.deep._data_utils import check_if_data_is_normalized
 import numpy as np
@@ -42,7 +43,7 @@ conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
 # https://discuss.pytorch.org/t/what-does-model-eval-do-for-batchnorm-layer/7146
 
 print("Convolutional Autoencoder created")
-dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=10, print_step=50,
+dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=1000, print_step=50,
              device=device)
 # supervised fit
 #dec.fit(data, labels)
@@ -70,4 +71,7 @@ difference = labels - predicted_labels
 print("Number of mislabeled points out of a total %d points : %d" % (data.shape[0], (difference != 0).sum()))
 
 my_ari = ari(labels, dec.labels_)
-print(my_ari)
+print("ari", my_ari)
+
+my_nmi = nmi(labels, dec.labels_)
+print("nmi", my_nmi)
