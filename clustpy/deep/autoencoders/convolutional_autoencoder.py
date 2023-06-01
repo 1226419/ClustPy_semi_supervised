@@ -78,7 +78,8 @@ class ConvolutionalAutoencoder(FlexibleAutoencoder):
         self.fitted = False
         self.input_height = input_height
         self.device = detect_device()
-
+        if fc_decoder_layers is None:
+            fc_decoder_layers = fc_layers[::-1]
         # Setup convolutional encoder and decoder
         if conv_encoder in _VALID_CONV_MODULES:
             self.conv_encoder = _VALID_CONV_MODULES[conv_encoder]["enc"](first_conv=True, maxpool1=True, pretrained_weights=pretrained_encoder_weights)
