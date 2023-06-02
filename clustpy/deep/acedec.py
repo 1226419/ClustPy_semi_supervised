@@ -662,7 +662,7 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
           learning_rate, pretrain_epochs, max_epochs, optimizer_class, loss_fn,
           degree_of_space_distortion, degree_of_space_preservation, autoencoder,
           embedding_size, init, random_state, device, scheduler, scheduler_params, tolerance_threshold, init_kwargs,
-          init_subsample_size, debug, print_step):
+          init_subsample_size, debug, print_step, recluster):
     print("setup acedec")
     # Set device to train on
     if device is None:
@@ -744,7 +744,8 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
 
     # Recluster
     print("Recluster")
-    acedec_module.recluster(dataloader=subsampleloader, model=autoencoder, device=device)
+    if recluster:
+        acedec_module.recluster(dataloader=subsampleloader, model=autoencoder, device=device)
     # TODO: skip recluster call and do it outside in the example file
     # Predict labels and transfer other parameters to numpy
     cluster_labels = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device, use_P=True)
@@ -787,6 +788,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
     init_kwargs : dict, default=None, additional parameters that are used if init is a callable. (optional)
     init_subsample_size: int, default=None, specify if only a subsample of size 'init_subsample_size' of the data should be used for the initialization. (optional)
     debug: bool, default=False, if True additional information during the training will be printed.
+    recluster: whether a final reclustering should be performed
 
     Raises
     ----------
@@ -804,7 +806,8 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                  optimizer_class=torch.optim.Adam, loss_fn=torch.nn.MSELoss(),
                  degree_of_space_distortion=1.0, degree_of_space_preservation=1.0, autoencoder=None,
                  embedding_size=20, init="nrkmeans", random_state=None, device=None, scheduler=None,
-                 scheduler_params=None, init_kwargs=None, init_subsample_size=None, debug=False, print_step=10):
+                 scheduler_params=None, init_kwargs=None, init_subsample_size=None, debug=False, print_step=10,
+                 recluster: bool = True):
         self.n_clusters = n_clusters.copy()
         self.random_state = random_state
         self.device = device
@@ -826,6 +829,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         self.init_subsample_size = init_subsample_size
         self.debug = debug
         self.print_step = print_step
+        self.recluster = recluster
 
         if len(self.n_clusters) > 1:
             raise NotImplementedError(f"currently only one clustering is supported, but {len(self.n_clusters)} were "
@@ -885,7 +889,8 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          init_kwargs=self.init_kwargs,
                                                                                          init_subsample_size=self.init_subsample_size,
                                                                                          debug=self.debug,
-                                                                                         print_step=self.print_step)
+                                                                                         print_step=self.print_step,
+                                                                                         recluster=self.recluster)
         # Update class variables
         self.labels_ = cluster_labels[:, 0]
         self.cluster_centers_ = cluster_centers

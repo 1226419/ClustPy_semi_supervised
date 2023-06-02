@@ -44,7 +44,7 @@ conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
 
 print("Convolutional Autoencoder created")
 dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=100, print_step=50,
-             device=device)
+             device=device, recluster=False)
 # supervised fit
 #dec.fit(data, labels)
 
