@@ -23,7 +23,7 @@ print(len(labels))
 
 # setup convolutional Autoencoder for mnist training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 input_height = 28
-fc_layers = [512, 500, 500, 2000, 100]
+fc_layers = [512, 500, 500, 2000, 64]
 if torch.cuda.is_available():
     device = torch.device('cuda')
 
@@ -43,7 +43,7 @@ conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
 # https://discuss.pytorch.org/t/what-does-model-eval-do-for-batchnorm-layer/7146
 
 print("Convolutional Autoencoder created")
-dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=100, print_step=50,
+dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=1000, print_step=50,
              device=device, recluster=False)
 # supervised fit
 #dec.fit(data, labels)
