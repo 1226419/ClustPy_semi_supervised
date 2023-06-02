@@ -919,6 +919,9 @@ def nrkmeans_init(data: np.ndarray, n_clusters: list, rounds: int = 10, max_iter
             if debug:
                 print(f"Round {i}: Found solution with: {cost} (current best: {lowest})")
     # Best parameters
+    if best is None:
+        print("what", centers_i)
+        best = [centers_i, P_i, V_i, ]
     centers, P, V = best
     # centers are expected to be rotated for ENRC
     centers = [np.matmul(centers_sub, V) for centers_sub in centers]
