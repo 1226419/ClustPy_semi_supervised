@@ -89,6 +89,7 @@ def get_dataloader(X: np.ndarray, batch_size: int, shuffle: bool = True, drop_la
     assert type(X) in [np.ndarray, torch.Tensor], "X must be of type np.ndarray or torch.Tensor."
     assert additional_inputs is None or type(additional_inputs) in [np.ndarray, torch.Tensor,
                                                                     list], "additional_input must be None or of type np.ndarray, torch.Tensor or list."
+    check_if_data_is_normalized(X)
     if type(X) is np.ndarray:
         # Convert np.ndarray to torch.Tensor
         X = torch.from_numpy(X).float()

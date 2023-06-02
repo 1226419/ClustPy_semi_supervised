@@ -7,6 +7,7 @@ import torch
 import numpy as np
 from clustpy.deep._early_stopping import EarlyStopping
 from clustpy.deep._data_utils import get_dataloader
+from clustpy.deep._data_utils import check_if_data_is_normalized
 
 
 class FullyConnectedBlock(torch.nn.Module):
@@ -310,6 +311,8 @@ class FlexibleAutoencoder(torch.nn.Module):
             if data is None:
                 raise ValueError("data must be specified if dataloader is None")
             dataloader = get_dataloader(data, batch_size, True)
+        else:
+            check_if_data_is_normalized(data)
         # evalloader has priority over data_eval
         if evalloader is None:
             if data_eval is not None:
