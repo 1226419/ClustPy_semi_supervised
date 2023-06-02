@@ -13,11 +13,13 @@ data, labels = load_banknotes()
 
 def znorm(X):
     return (X - np.mean(X)) / np.std(X)
-
+def minmax(X):
+    return (X - np.min(X)) / (np.max(X) - np.min(X))
 
 #data, labels = load_mnist()
 
-percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+#percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+percentages_of_unlabeled_data = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
 # percentages_of_unlabeled_data = [0.0, 1.0]
 datasets = []
 data, labels = load_banknotes()
@@ -26,7 +28,7 @@ for percentage in percentages_of_unlabeled_data:
     semi_supervised_labels[np.random.choice(len(labels), int(len(labels) * percentage), replace=False)] = -1
     datasets.append(EvaluationDataset("Banknotes_"+str(int((1.0-percentage)*100))+ "_percent_labeled", data,
                                       labels_true=labels,
-                                      y=semi_supervised_labels, preprocess_methods=znorm))
+                                      y=semi_supervised_labels, preprocess_methods=minmax))
 
 
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
@@ -38,11 +40,11 @@ algorithmns = [
 
     EvaluationAlgorithm("ACEDEC_small_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder":
         small_autoencoder,
-                                                              "debug": False, "clustering_epochs": 5000,
+                                                              "debug": False, "clustering_epochs": 1000,
                                                                    "print_step": 50}),
     EvaluationAlgorithm("ACEDEC_med_autoencoder_1000", ACEDEC, {"n_clusters": [2], "autoencoder":
         medium_autoencoder,
-                                                              "debug": False,  "clustering_epochs": 5000,
+                                                              "debug": False,  "clustering_epochs": 1000,
                                                                  "print_step": 50})
 
 ]
@@ -55,6 +57,6 @@ metrics = [EvaluationMetric("NMI", nmi)]
 
 
 df = evaluate_multiple_datasets(datasets, algorithmns, metrics, n_repetitions=5, aggregation_functions=[np.mean],
-    add_runtime=False, add_n_clusters=False, save_path="evaluation_31_05_deepcopy_1.csv",
+    add_runtime=False, add_n_clusters=False, save_path="02_06_minmax.csv",
                                 save_intermediate_results=False)
 print(df)

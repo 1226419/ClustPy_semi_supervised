@@ -920,6 +920,7 @@ def nrkmeans_init(data: np.ndarray, n_clusters: list, rounds: int = 10, max_iter
                 print(f"Round {i}: Found solution with: {cost} (current best: {lowest})")
     # Best parameters
     if best is None:
+        #TODO:  Noice space is removed increase embedded space dimensionality
         print("what", lowest)
         print("what", centers_i)
         best = [centers_i, P_i, V_i, ]
