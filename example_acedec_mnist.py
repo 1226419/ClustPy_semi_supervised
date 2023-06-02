@@ -43,7 +43,7 @@ conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
 # https://discuss.pytorch.org/t/what-does-model-eval-do-for-batchnorm-layer/7146
 
 print("Convolutional Autoencoder created")
-dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=1000, print_step=50,
+dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=100, print_step=50,
              device=device)
 # supervised fit
 #dec.fit(data, labels)
