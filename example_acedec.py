@@ -80,7 +80,7 @@ dec = ACEDEC([2], autoencoder=small_autoencoder, debug=True, pretrain_epochs=2, 
 # randomly assign some values of labels array to -1
 semi_supervised_labels = y_train.copy()
 # percentage 1.0 is unsupervised, 0.0 is supervised
-percentage = 0.0
+percentage = 0.1
 semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
 
 # semi-supervised fit

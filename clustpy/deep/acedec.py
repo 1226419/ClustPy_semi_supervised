@@ -310,8 +310,6 @@ class _ACeDeC_Module(torch.nn.Module):
         embedded_rot = np.matmul(embedded_data, V)
 
         # Apply reclustering in the rotated space, because V does not have to be orthogonal, so it could learn a mapping that is not recoverable by nrkmeans.
-
-        # Apply reclustering in the rotated space, because V does not have to be orthogonal, so it could learn a mapping that is not recoverable by nrkmeans.
         centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
                                                                 max_iter=300, learning_rate=self.learning_rate,
                                                                 init="auto", debug=False)
