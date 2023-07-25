@@ -26,7 +26,7 @@ print(len(labels))
 X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2) # random state can be added
 # setup convolutional Autoencoder for mnist training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 input_height = 28
-fc_layers = [512, 500, 500, 2000, 10]
+fc_layers = [512, 500, 500, 2000, 20]
 if torch.cuda.is_available():
     device = torch.device('cuda')
 
@@ -101,11 +101,25 @@ print("acedec fit")
 
 #dec.fit(data)
 predicted_labels = dec.labels_
-labels_test = dec.predict(X_test_minmax)
+print("checking training set")
+y_train = y_train.astype(int)
+
+difference = y_train - predicted_labels
+print("Number of mislabeled points out of a total %d points : %d" % (difference.shape[0], (difference != 0).sum()))
+
+my_ari = ari(y_train, predicted_labels)
+print("ari", my_ari)
+
+my_nmi = nmi(y_train, predicted_labels)
+print("nmi", my_nmi)
+
+print("checking test set")
+labels_test = dec.predict(X_test_minmax)[:, 0]
+
 y_test = y_test.astype(int)
 
 difference = y_test - labels_test
-print("Number of mislabeled points out of a total %d points : %d" % (data.shape[0], (difference != 0).sum()))
+print("Number of mislabeled points out of a total %d points : %d" % (difference.shape[0], (difference != 0).sum()))
 
 my_ari = ari(y_test, labels_test)
 print("ari", my_ari)
