@@ -61,7 +61,7 @@ conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
 # TODO: https://stackoverflow.com/questions/58447885/pytorch-going-back-and-forth-between-eval-and-train-modes
 # https://discuss.pytorch.org/t/what-does-model-eval-do-for-batchnorm-layer/7146
 
-X_train_encoded = conv_autoencoder.encode(torch.from_numpy(X_train_minmax).to(torch.float32)).detach().numpy()
+X_train_encoded = conv_autoencoder.encode(torch.from_numpy(X_train_minmax).to(torch.float32).to(device)).detach().cpu().numpy()
 kmeans = KMeans(n_clusters=10, random_state=0, n_init="auto").fit(X_train_encoded)
 
 my_ari = ari(y_train, kmeans.labels_)
@@ -69,7 +69,7 @@ print("ARI Training set Kmeans on encoded training data", my_ari)
 
 my_nmi = nmi(y_train, kmeans.labels_)
 print("NMI Training set Kmeans on encoded training data", my_nmi)
-X_test_encoded = conv_autoencoder.encode(torch.from_numpy(X_test_znorm).to(torch.float32)).detach().numpy()
+X_test_encoded = conv_autoencoder.encode(torch.from_numpy(X_test_znorm).to(torch.float32).to(device)).detach().cpu().numpy()
 labels_test = kmeans.predict(X_test_encoded)
 my_ari = ari(labels_test, y_test)
 print("ARI Test set Kmeans on encoded training data", my_ari)
@@ -96,7 +96,7 @@ percentage = 0.0
 semi_supervised_labels[np.random.choice(len(labels), int(len(labels)*percentage), replace=False)] = -1
 print("acedec created")
 # semi-supervised fit
-dec.fit(data, semi_supervised_labels)
+dec.fit(X_train_minmax, semi_supervised_labels)
 print("acedec fit")
 
 #dec.fit(data)
