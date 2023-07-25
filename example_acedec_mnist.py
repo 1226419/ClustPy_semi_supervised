@@ -43,9 +43,9 @@ print("ARI Training set Kmeans on raw data", my_ari)
 
 my_nmi = nmi(y_train, kmeans.labels_)
 print("NMI Training set Kmeans on raw data", my_nmi)
-X_test_znorm = znorm(X_test)
-X_test_znorm_kmeans = X_test_znorm.reshape(len(X_test_znorm), 784)
-labels_test = kmeans.predict(X_test_znorm_kmeans)
+X_test_minmax = minmax(X_test)
+X_test_minmax_kmeans = X_test_minmax.reshape(len(X_test_minmax), 784)
+labels_test = kmeans.predict(X_test_minmax_kmeans)
 my_ari = ari(labels_test, y_test)
 print("ARI Test set Kmeans on raw data", my_ari)
 
@@ -69,7 +69,7 @@ print("ARI Training set Kmeans on encoded training data", my_ari)
 
 my_nmi = nmi(y_train, kmeans.labels_)
 print("NMI Training set Kmeans on encoded training data", my_nmi)
-X_test_encoded = conv_autoencoder.encode(torch.from_numpy(X_test_znorm).to(torch.float32).to(device)).detach().cpu().numpy()
+X_test_encoded = conv_autoencoder.encode(torch.from_numpy(X_test_minmax).to(torch.float32).to(device)).detach().cpu().numpy()
 labels_test = kmeans.predict(X_test_encoded)
 my_ari = ari(labels_test, y_test)
 print("ARI Test set Kmeans on encoded training data", my_ari)
@@ -90,10 +90,10 @@ dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, 
 # dec.fit(data, unsupervised_labels)
 
 # randomly assign some values of labels array to -1
-semi_supervised_labels = labels.copy()
+semi_supervised_labels = y_train.copy()
 # percentage 1.0 is unsupervised, 0.0 is supervised
 percentage = 0.0
-semi_supervised_labels[np.random.choice(len(labels), int(len(labels)*percentage), replace=False)] = -1
+semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
 print("acedec created")
 # semi-supervised fit
 dec.fit(X_train_minmax, semi_supervised_labels)
@@ -101,13 +101,14 @@ print("acedec fit")
 
 #dec.fit(data)
 predicted_labels = dec.labels_
-labels = labels.astype(int)
+labels_test = dec.predict(X_test_minmax)
+y_test = y_test.astype(int)
 
-difference = labels - predicted_labels
+difference = y_test - labels_test
 print("Number of mislabeled points out of a total %d points : %d" % (data.shape[0], (difference != 0).sum()))
 
-my_ari = ari(labels, dec.labels_)
+my_ari = ari(y_test, labels_test)
 print("ari", my_ari)
 
-my_nmi = nmi(labels, dec.labels_)
+my_nmi = nmi(y_test, labels_test)
 print("nmi", my_nmi)
