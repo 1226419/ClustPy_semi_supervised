@@ -287,7 +287,7 @@ class _ACeDeC_Module(torch.nn.Module):
                                       subspace_betas=self.subspace_betas(), device=device, use_P=use_P)
 
 
-    def recluster(self, dataloader, model, device=torch.device('cpu'), rounds=1):
+    def recluster(self, y, dataloader, model, device=torch.device('cpu'), rounds=1):
         """Recluster ACeDeC inplace using NrKMeans or SGD (depending on the data set size, see init='auto' for details).
            Can lead to improved and more stable performance.
            Updates self.P, self.beta_weights, self.V and self.centers.
@@ -308,21 +308,22 @@ class _ACeDeC_Module(torch.nn.Module):
         # Encode data
         embedded_data = encode_batchwise(dataloader, model, device)
         embedded_rot = np.matmul(embedded_data, V)
-
+        print("embedded_rot", embedded_rot)
+        """
         # Apply reclustering in the rotated space, because V does not have to be orthogonal, so it could learn a mapping that is not recoverable by nrkmeans.
         centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
                                                                 max_iter=300, learning_rate=self.learning_rate,
                                                                 init="auto", debug=False)
         print("Warning: labels not used for reclustering")  # TODO: add labels to reclustering
         """
-        centers_reclustered, P, new_V, beta_weights = acedec_init(n_samples=X.shape[0], y=y, embedded_data=embedded_rot,
+        centers_reclustered, P, new_V, beta_weights = acedec_init(y=y, embedded_data=embedded_rot,
                                                     n_clusters=n_clusters,
                                                     device=device, init="auto",
                                                     rounds=rounds, epochs=10, debug=False,
                                                     #input_centers=input_centers,
                                                     max_iter=300, learning_rate=self.learning_rate,
                                                     )
-        """
+
         # Update V, because we applied the reclustering in the rotated space
         new_V = np.matmul(V, new_V)
 
@@ -556,7 +557,7 @@ def available_init_strategies():
     return ['nrkmeans', 'random', 'sgd', 'auto']
 
 
-def acedec_init(n_samples, y, embedded_data, n_clusters, init="auto", rounds=10, input_centers=None, P=None, V=None,
+def acedec_init(y, embedded_data, n_clusters, init="auto", rounds=10, input_centers=None, P=None, V=None,
                 random_state=None,
                 max_iter=100, learning_rate=None, optimizer_class=None, batch_size=128, epochs=10,
                 device=torch.device("cpu"),  debug=True, init_kwargs=None):
@@ -609,7 +610,7 @@ def acedec_init(n_samples, y, embedded_data, n_clusters, init="auto", rounds=10,
         ValueError : if init variable is passed that is not implemented.
         """
     if input_centers is None:
-        if int(sum(y)) == n_samples * -1:
+        if int(sum(y)) == len(y) * -1:
             print("No labels available - performing unsupervised initialization")
             input_centers = None
         else:
@@ -687,7 +688,7 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
     print("get embedded data")
     embedded_data = encode_batchwise(subsampleloader, autoencoder, device)
 
-    input_centers, P, V, beta_weights = acedec_init(n_samples=X.shape[0], y=y, embedded_data=embedded_data,
+    input_centers, P, V, beta_weights = acedec_init(y=y, embedded_data=embedded_data,
                                                     n_clusters=n_clusters,
                                                     device=device, init=init,
                                                     rounds=10, epochs=10, batch_size=batch_size, debug=debug,
