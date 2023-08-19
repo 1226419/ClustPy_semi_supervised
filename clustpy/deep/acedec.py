@@ -747,7 +747,8 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
         acedec_module.recluster(y=y, dataloader=subsampleloader, model=autoencoder, device=device)
     # TODO: skip recluster call and do it outside in the example file
     # Predict labels and transfer other parameters to numpy
-    cluster_labels = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device, use_P=True)
+    cluster_labels = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device, use_P=True)[:, 0]
+    print("CLUSTER LABELS ", cluster_labels)
     cluster_centers = [centers_i.detach().cpu().numpy() for centers_i in acedec_module.centers]
     V = acedec_module.V.detach().cpu().numpy()
     betas = acedec_module.subspace_betas().detach().cpu().numpy()
@@ -807,7 +808,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                  embedding_size=20, init="nrkmeans", random_state=None, device=None, scheduler=None,
                  scheduler_params=None, init_kwargs=None, init_subsample_size=None, debug=False, print_step=10,
                  recluster: bool = True):
-        self.n_clusters = n_clusters.copy()
+        self.n_clusters = n_clusters
         self.random_state = random_state
         self.device = device
         self.batch_size = batch_size
@@ -829,13 +830,15 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         self.debug = debug
         self.print_step = print_step
         self.recluster = recluster
-
-        if len(self.n_clusters) > 1:
-            raise NotImplementedError(f"currently only one clustering is supported, but {len(self.n_clusters)} were "
-                                      f"given. \n The noise space does not need to be given as Input of ACeDeC")
-        elif len(self.n_clusters) < 1:
-            raise ValueError(f"At least one clustering has to be given, but {len(self.n_clusters)} were given")
-        self.n_clusters.append(1)
+        print(n_clusters)
+        if len(self.n_clusters) > 2:
+            raise NotImplementedError(f"currently only two cluster spaces are supported, but {len(self.n_clusters)} "
+                                      f"were "
+                                      f"given. \n The noise space does need to be given as Input of ACeDeC")
+        elif len(self.n_clusters) < 2:
+            raise ValueError(f"At least one clustering and one noise space has to be given, but {len(self.n_clusters)} "
+                             f"were given")
+        #self.n_clusters.append(1)
 
         if init in available_init_strategies():
             self.init = init
@@ -891,7 +894,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          print_step=self.print_step,
                                                                                          recluster=self.recluster)
         # Update class variables
-        self.labels_ = cluster_labels[:, 0]
+        self.labels_ = cluster_labels
         self.cluster_centers_ = cluster_centers
         self.V = V
         self.m = m
