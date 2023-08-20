@@ -650,7 +650,7 @@ def acedec_init(y, embedded_data, n_clusters, init="auto", rounds=10, input_cent
                                                   device=device, init=init,
                                                   rounds=rounds, epochs=epochs, batch_size=batch_size, debug=debug,
                                                   input_centers=input_centers, P=P, V=V, random_state=random_state,
-                                                  max_iter=max_iter, learning_rate=learning_rate,
+                                                  max_iter=max_iter, optimizer_params={"lr": learning_rate},
                                                   optimizer_class=optimizer_class, init_kwargs=init_kwargs)
     if debug:
         plot_2d_data(embedded_data@V, y, input_centers[0], title="after enrc_init")
@@ -684,7 +684,7 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
     # Setup autoencoder
     print("setup autoencoder")
     autoencoder = get_trained_autoencoder(trainloader, pretrain_learning_rate, pretrain_epochs, device,
-                                          optimizer_class, loss_fn, X.shape[1], embedding_size, autoencoder)
+                                          optimizer_class, loss_fn, embedding_size, autoencoder)
     print("get embedded data")
     embedded_data = encode_batchwise(subsampleloader, autoencoder, device)
 

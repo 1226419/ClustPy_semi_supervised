@@ -6,7 +6,7 @@ from sklearn.metrics import  make_scorer
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split, GridSearchCV
 import torch
-from clustpy.deep.autoencoders.flexible_autoencoder import FlexibleAutoencoder
+from clustpy.deep.autoencoders.feedforward_autoencoder import FeedforwardAutoencoder
 import numpy as np
 from clustpy.deep._data_utils import check_if_data_is_normalized
 
@@ -56,12 +56,13 @@ grid_search_parameters = { "pretrain_learning_rate": [1e-3, 1e-4],
 
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 # small_autoencoder = None
-# small_autoencoder = FlexibleAutoencoder(layers=[4, 2, 2, 2, 2]).fit(n_epochs=100, lr=1e-3, data=data)
-small_autoencoder = FlexibleAutoencoder(layers=[4, 32, 8]).fit(n_epochs=100, lr=1e-3, data=data)
+# small_autoencoder = FeedforwardAutoencoder(layers=[4, 2, 2, 2, 2]).fit(n_epochs=100, lr=1e-3, data=data)
+optimizer_params = {"lr": 1e-3}
+small_autoencoder = FeedforwardAutoencoder(layers=[4, 32, 8]).fit(n_epochs=100, optimizer_params=optimizer_params, data=data)
 
 
-#medium_autoencoder = FlexibleAutoencoder(layers=[4, 126, 64, 32, 8]).fit(n_epochs=1000, lr=1e-3, data=data)
-#small_autoencoder = FlexibleAutoencoder(layers=[784, 32, 20]).fit(n_epochs=100, lr=1e-3, data=data)
+#medium_autoencoder = FeedforwardAutoencoder(layers=[4, 126, 64, 32, 8]).fit(n_epochs=1000, lr=1e-3, data=data)
+#small_autoencoder = FeedforwardAutoencoder(layers=[784, 32, 20]).fit(n_epochs=100, lr=1e-3, data=data)
 
 X_train_encoded = small_autoencoder.encode(torch.from_numpy(data).to(torch.float32)).detach().numpy()
 kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(X_train_encoded)
@@ -81,9 +82,9 @@ print("NMI Test set Kmeans on encoded training data", my_nmi)
 
 dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=100, print_step=50)
 nmi_scorer = make_scorer(nmi)
-hyperparameter_grid_search = GridSearchCV(dec, grid_search_parameters, scoring=nmi_scorer)
-hyperparameter_grid_search.fit(X_validation, y_validation)
-print(hyperparameter_grid_search.cv_results_)
+#hyperparameter_grid_search = GridSearchCV(dec, grid_search_parameters, scoring=nmi_scorer)
+#yperparameter_grid_search.fit(X_validation, y_validation)
+#print(hyperparameter_grid_search.cv_results_)
 # supervised fit
 #dec.fit(data, labels)
 
