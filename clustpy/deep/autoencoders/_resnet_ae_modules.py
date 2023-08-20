@@ -199,9 +199,9 @@ class ResNetEncoder(nn.Module):
         self.maxpool1 = maxpool1
 
         if self.first_conv:
-            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+            self.conv1 = nn.Conv2d(1, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         else:
-            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
+            self.conv1 = nn.Conv2d(1, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
 
         self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -280,11 +280,17 @@ class ResNetDecoder(nn.Module):
             self.upscale_factor *= 2
         else:
             self.upscale = Interpolate(scale_factor=1)
-
         # interpolate after linear layer using scale factor
-        self.upscale1 = Interpolate(size=input_height // self.upscale_factor)
+        interpolation_size = input_height // self.upscale_factor
+        if interpolation_size < 1:
+            interpolation_size = 1
+            self.final_scaling = Interpolate(size=input_height)
+        else:
+            self.final_scaling = None
 
-        self.conv1 = nn.Conv2d(64 * block.expansion, 3, kernel_size=3, stride=1, padding=1, bias=False)
+        self.upscale1 = Interpolate(size=interpolation_size)
+
+        self.conv1 = nn.Conv2d(64 * block.expansion, 1, kernel_size=3, stride=1, padding=1, bias=False)
 
     def _make_layer(self, block, planes, blocks, scale=1):
         upsample = None
@@ -308,9 +314,7 @@ class ResNetDecoder(nn.Module):
         # NOTE: replaced this by Linear(in_channels, 514 * 4 * 4)
         # x = F.interpolate(x, scale_factor=4)
         x = x.view(x.size(0), 512 * self.expansion, 4, 4)
-
         x = self.upscale1(x)
-
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
@@ -318,6 +322,8 @@ class ResNetDecoder(nn.Module):
         x = self.upscale(x)
 
         x = self.conv1(x)
+        if self.final_scaling is not None:
+            x = self.final_scaling(x)
         return x
 
 

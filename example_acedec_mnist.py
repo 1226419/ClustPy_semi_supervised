@@ -16,10 +16,8 @@ def minmax(X):
     return (X - np.min(X)) / (np.max(X) - np.min(X))
 
 data, labels = load_mnist()
-print(data)
 print(data.shape)
 data = data.reshape(70000, 1, 28, 28)
-print(data)
 print(data.shape)
 print(len(labels))
 
