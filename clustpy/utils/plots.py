@@ -256,14 +256,14 @@ def plot_3d_data(X: np.ndarray, labels: np.ndarray = None, centers: np.ndarray =
         _add_legend(fig, unique_labels, cmap, norm)
     if show_plot:
         plt.show()
-    plt.figure()  # Create new figure for future plots
 
 
-def plot_image(img_data: np.ndarray, black_and_white: bool = False, image_shape: tuple = None, max_value: float = None,
-               min_value: float = None, show_plot: bool = True) -> None:
+def plot_image(img_data: np.ndarray, black_and_white: bool = False, image_shape: tuple = None,
+               is_color_channel_last: bool = False, max_value: float = None, min_value: float = None,
+               show_plot: bool = True) -> None:
     """
     Plot an image.
-    Expects a color image to occur in the HWC representation (height, width, color channels).
+    Color image should occur in the HWC representation (height, width, color channels) if is_color_channel_last is True and in the CHW if is_color_channel_last is False.
 
     Parameters
     ----------
@@ -272,7 +272,10 @@ def plot_image(img_data: np.ndarray, black_and_white: bool = False, image_shape:
     black_and_white : bool
         Specifies whether the image should be plotted in grayscale colors. Only relevant for images without color channels (default: False)
     image_shape : tuple
-        (height, width) for grayscale images or (height, width, number of channels) for color images (default: None)
+        (height, width) for grayscale images or HWC (height, width, color channels) / CHW for color images (default: None)
+    is_color_channel_last : bool
+        if true, the color channels should be in the last dimension, known as HWC representation. Alternatively the color channel can be at the first position, known as CHW representation.
+        Only relevant for color images (default: False)
     max_value : float
         maximum pixel value, used for min-max normalization. Is often 255, if None the maximum value in the data set will be used (default: None)
     min_value : float
@@ -294,10 +297,14 @@ def plot_image(img_data: np.ndarray, black_and_white: bool = False, image_shape:
         max_value = np.max(img_data)
     if min_value is None:
         min_value = np.min(img_data)
+    # Scale image to [0, 1]
     img_data = (img_data - min_value) / (max_value - min_value)
     # Reshape array data
     if img_data.ndim == 1:
         img_data = img_data.reshape(image_shape)
+    if img_data.ndim == 3 and not is_color_channel_last:
+        # Reshape image to HWC representation
+        img_data = np.transpose(img_data, (1, 2, 0))
     # Plot original image or a black-and-white version
     if black_and_white:
         plt.imshow(img_data, cmap="Greys")
@@ -402,15 +409,16 @@ def plot_scatter_matrix(X: np.ndarray, labels: np.ndarray = None, centers: np.nd
     Returns
     -------
     axes : plt.Axes
-        The used matplotlib axes
+        None if show_plot is True, otherwise the used matplotlib axes
     """
     if X.shape[1] > max_dimensions:
         print(
             "[WARNING] Dimensionality of the dataset is larger than 10. Creation of scatter matrix plot will be aborted.")
     # For single dimension only plot histogram
     if X.shape[1] == 1:
-        plot_histogram(X[:, 0], labels, density, n_bins, show_legend)
-        return plt.gca()
+        plot_histogram(X[:, 0], labels, density, n_bins, show_legend, show_plot=show_plot)
+        if not show_plot:
+            return plt.gca()
     else:
         # Get unique labels and unique true labels
         if labels is not None:
@@ -445,7 +453,8 @@ def plot_scatter_matrix(X: np.ndarray, labels: np.ndarray = None, centers: np.nd
             _add_legend(fig, unique_labels, cmap, norm)
         if show_plot:
             plt.show()
-        return axes
+        else:
+            return axes
 
 
 def _add_legend(container: plt.Axes, unique_labels: np.ndarray, cmap: Colormap, norm: Normalize) -> None:
@@ -467,7 +476,7 @@ def _add_legend(container: plt.Axes, unique_labels: np.ndarray, cmap: Colormap, 
     container.legend(handles=patchlist, loc="center right")
 
 
-def _get_cmap_and_norm(labels: np.ndarray) -> (np.ndarray, Colormap, Normalize):
+def _get_cmap_and_norm(labels: np.ndarray, min_max: tuple = None) -> (np.ndarray, Colormap, Normalize):
     """
     Helper function to get colormap and Normalization object.
 
@@ -475,6 +484,8 @@ def _get_cmap_and_norm(labels: np.ndarray) -> (np.ndarray, Colormap, Normalize):
     ----------
     labels : np.ndarray
         The cluster labels
+    min_max : tuple
+        Tuple containing the minimum and maximum cluster label for coloring the plot (default: None)
 
     Returns
     -------
@@ -484,7 +495,10 @@ def _get_cmap_and_norm(labels: np.ndarray) -> (np.ndarray, Colormap, Normalize):
         The Normalize object to pick the correct color
     """
     unique_labels = np.unique(labels)
+    if min_max is None:
+        min_max = (unique_labels[0], unique_labels[-1])
+    assert min_max[0] <= min_max[1], "First value in min_max must be smaller or equal to second value"
     # Manage colormap
     cmap = cm.get_cmap('viridis', 12)
-    norm = Normalize(vmin=unique_labels[0], vmax=unique_labels[-1])
+    norm = Normalize(vmin=min_max[0], vmax=min_max[1])
     return unique_labels, cmap, norm

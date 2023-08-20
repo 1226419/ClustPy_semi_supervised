@@ -1,11 +1,8 @@
 import torch
-import numpy as np
-from clustpy.deep._early_stopping import EarlyStopping
-from clustpy.deep._data_utils import get_dataloader
-from clustpy.deep.autoencoders.resnet_ae_modules import resnet18_encoder, resnet18_decoder, resnet50_encoder, \
-    resnet50_decoder
-from clustpy.deep.autoencoders.flexible_autoencoder import FullyConnectedBlock, FlexibleAutoencoder
-from clustpy.deep._utils import detect_device
+from clustpy.deep.autoencoders._resnet_ae_modules import resnet18_encoder, resnet18_decoder, resnet50_encoder, \
+    resnet50_decoder, ResNetEncoder
+from clustpy.deep.autoencoders._abstract_autoencoder import FullyConnectedBlock, _AbstractAutoencoder
+from torchvision.models._api import Weights
 
 _VALID_CONV_MODULES = {
     "resnet18": {
@@ -18,142 +15,146 @@ _VALID_CONV_MODULES = {
     },
 }
 
+_CONV_MODULES_INPUT_DIM = {"resnet18": 512, "resnet50": 2048}
 
-class ConvolutionalAutoencoder(FlexibleAutoencoder):
+
+class ConvolutionalAutoencoder(_AbstractAutoencoder):
     """
-    A flexible convolutional autoencoder.
-    
+    A convolutional autoencoder based on the ResNet architecture.
+
+    Parameters
+    ----------
+    input_height: int
+        height of the images for the decoder (assume square images)
+    fc_layers : list
+        list of the different layer sizes from flattened convolutional layer input to embedding. First input needs to be 512 if conv_encoder_name="resnet18" and 2048 if conv_encoder_name="resnet50".
+        If decoder_layers are not specified then the decoder is symmetric and goes in the same order from embedding to input.
+    conv_encoder_name : str
+        name of convolutional resnet encoder part of the autoencoder. Can be 'resnet18' or 'resnet50' (default: 'resnet18')
+    conv_decoder_name : str
+        name of convolutional resnet decoder part of the autoencoder. Can be 'resnet18' or 'resnet50'. If None it will be the same as conv_encoder_name (default: None)
+    activation_fn : torch.nn.Module
+        activation function from torch.nn, set the activation function for the hidden layers, if None then it will be linear (default: torch.nn.LeakyReLU)
+    fc_decoder_layers : list
+        list of different layer sizes from embedding to output of the decoder. If set to None, will be symmetric to layers (default: None)
+    decoder_output_fn : torch.nn.Module
+        activation function from torch.nn, set the activation function for the decoder output layer, if None then it will be linear.
+        E.g. set to torch.nn.Sigmoid if you want to scale the decoder output between 0 and 1 (default: None)
+    pretrained_encoder_weights : torchvision.models._api.Weights
+        weights from torch.vision.models, indicates whether pretrained resnet weights should be used for the encoder. (default: None)
+    pretrained_decoder_weights : torchvision.models._api.Weights
+        weights from torch.vision.models, indicates whether pretrained resnet weights should be used for the decoder (not implemented yet). (default: None)
+    reusable : bool
+        If set to true, deep clustering algorithms will optimize a copy of the autoencoder and not the autoencoder itself.
+        Ensures that the same autoencoder can be used by multiple deep clustering algorithms.
+        As copies of this object are created, the memory requirement increases (default: True)
+    fc_kwargs : dict
+        additional parameters for FullyConnectedBlock
+
     Attributes
     ----------
-    conv_encoder: convolutional encoder part of the autoencoder
-    conv_decoder: convolutional decoder part of the autoencoder
-    fc_encoder : fully connected encoder part of the autoencoder, together with conv_encoder is responsible for embedding data points (class is FullyConnectedBlock)
-    fc_decoder : fully connected decoder part of the autoencoder, together with conv_decoder is responsible for reconstructing data points from the embedding (class is FullyConnectedBlock)
-    fitted  : boolean value indicating whether the autoencoder is already trained.
+    conv_encoder : ResNetEncoder
+        convolutional resnet encoder part of the autoencoder
+    conv_decoder : ResNetEncoder
+        convolutional resnet decoder part of the autoencoder
+    fc_encoder : FullyConnectedBlock
+        fully connected encoder part of the convolutional autoencoder, together with conv_encoder is responsible for embedding data points
+    fc_decoder : FullyConnectedBlock
+        fully connected decoder part of the convolutional autoencoder, together with conv_decoder is responsible for reconstructing data points from the embedding
+    fitted  : bool
+        indicates whether the autoencoder is already fitted
+    reusable : bool
+        indicates whether the autoencoder should be reused by multiple deep clustering algorithms
 
     References
     ----------
-    Deep Residual Learning for Image Recognition <https://arxiv.org/pdf/1512.03385.pdf>
-    E.g. Ballard, Dana H. "Modular learning in neural networks." Aaai. Vol. 647. 1987.
+    He, Kaiming, et al. "Deep residual learning for image recognition."
+    Proceedings of the IEEE conference on computer vision and pattern recognition. 2016.
+
+    and
+
+    LeCun, Yann, et al. "Backpropagation applied to handwritten zip code recognition."
+    Neural computation 1.4 (1989): 541-551.
     """
 
-    def __init__(self, input_height, fc_layers, conv_encoder="resnet18", conv_decoder=None, batch_norm: bool = False,
-                 dropout: float = None,
-                 activation_fn: torch.nn.Module = torch.nn.ReLU, bias: bool = True,
-                 fc_decoder_layers=None, decoder_output_fn=None, pretrained_encoder_weights=None,
-                 pretrained_decoder_weights=None, reusable: bool = True, **fc_kwargs):
-        """
-        Create an instance of a convolutional autoencoder.
-
-        Parameters
-        ----------
-        input_height: height of the images for the decoder
-        fc_layers : list of the different layer sizes from flattened convolutional layer input to embedding. First input needs to be 512.
-                 If decoder_layers are not specified then the decoder is symmetric and goes in the same order from embedding to input.
-        conv_encoder: architecture of convolutional encoder
-        conv_decoder:  architecture of convolutional dencoder, if None is conv_encoder reversed
-        batch_norm : bool
-            Set True if you want to use torch.nn.BatchNorm1d (default: False)
-        dropout : float
-            Set the amount of dropout you want to use (default: None)
-        activation_fn: activation function from torch.nn, default=torch.nn.ReLU, set the activation function for the hidden layers, if None then it will be linear.
-        bias : bool, default=True, set False if you do not want to use a bias term in the linear layers
-        fc_decoder_layers : list, default=None, list of different layer sizes from embedding to output of the decoder. If set to None, will be symmetric to layers.
-        decoder_output_fn : activation function from torch.nn, default=None, set the activation function for the decoder output layer, if None then it will be linear.
-                            e.g. set to torch.nn.Sigmoid if you want to scale the decoder output between 0 and 1.
-        pretrained_encoder_weights : weights from torch.vision.models, default=None, indicates whether pretrained resnet weights should be used for the encoder.
-        pretrained_decoder_weights : weights from torch.vision.models, default=None, indicates whether pretrained resnet weights should be used for the decoder.
-        reusable : bool
-            If set to true, deep clustering algorithms will optimize a copy of the autoencoder and not the autoencoder itself.
-            Ensures that the same autoencoder can be used by multiple deep clustering algorithms.
-            As copies of this object are created, the memory requirement increases (default: True)
-        fc_kwargs : additional parameters for FullyConnectedBlock
-
-        """
-        if fc_layers[0] not in [512, 2048]:
-            raise ValueError(f"First input in fc_layers needs to be 512 or 2048, but is fc_layers[0] = {fc_layers[0]}")
-
-        super(ConvolutionalAutoencoder, self).__init__(fc_layers, batch_norm, dropout, activation_fn, bias,
-                                              fc_decoder_layers, decoder_output_fn, reusable)
-        self.fitted = False
+    def __init__(self, input_height: int, fc_layers: list, conv_encoder_name: str = "resnet18",
+                 conv_decoder_name: str = None, activation_fn: torch.nn.Module = torch.nn.ReLU,
+                 fc_decoder_layers: list = None, decoder_output_fn: torch.nn.Module = None,
+                 pretrained_encoder_weights: Weights = None, pretrained_decoder_weights: Weights = None,
+                 reusable: bool = True, **fc_kwargs):
+        super().__init__(reusable)
         self.input_height = input_height
-        self.device = detect_device()
+
+        # Check if layers match
         if fc_decoder_layers is None:
             fc_decoder_layers = fc_layers[::-1]
-        # Setup convolutional encoder and decoder
-        if conv_encoder in _VALID_CONV_MODULES:
-            self.conv_encoder = _VALID_CONV_MODULES[conv_encoder]["enc"](first_conv=True, maxpool1=True, pretrained_weights=pretrained_encoder_weights)
+        if (fc_layers[-1] != fc_decoder_layers[0]):
+            raise ValueError(
+                f"Innermost hidden layer and first decoder layer do not match, they are {fc_layers[-1]} and {fc_decoder_layers[0]} respectively.")
 
-            if conv_decoder is None:
-                conv_decoder = conv_encoder
-                self.conv_decoder = _VALID_CONV_MODULES[conv_decoder]["dec"](latent_dim=fc_decoder_layers[-1],
-                                                                             input_height=self.input_height,
-                                                                             first_conv=True, maxpool1=True,
-                                                                             pretrained_weights=pretrained_decoder_weights)
-            elif conv_decoder in _VALID_CONV_MODULES:
-                self.conv_decoder = _VALID_CONV_MODULES[conv_decoder]["dec"](latent_dim=fc_decoder_layers[-1], input_height=self.input_height, first_conv=True, maxpool1=True, pretrained_weights=pretrained_decoder_weights)
-            else:
-                raise ValueError(f"value for conv_decoder={conv_decoder} is not valid. Has to be one of {list(_VALID_CONV_MODULES.keys())}")
+        # Setup convolutional encoder and decoder
+        if conv_decoder_name is None:
+            conv_decoder_name = conv_encoder_name
+        if conv_encoder_name in _VALID_CONV_MODULES:
+            if fc_layers[0] != _CONV_MODULES_INPUT_DIM[conv_encoder_name]:
+                raise ValueError(
+                    f"First input in fc_layers needs to be {_CONV_MODULES_INPUT_DIM[conv_encoder_name]} for {conv_encoder_name} architecture, but is fc_layers[0] = {fc_layers[0]}")
+            self.conv_encoder = _VALID_CONV_MODULES[conv_encoder_name]["enc"](first_conv=True, maxpool1=True,
+                                                                              pretrained_weights=pretrained_encoder_weights)
         else:
-            raise ValueError(f"value for conv_encoder={conv_encoder} is not valid. Has to be one of {list(_VALID_CONV_MODULES.keys())}")
-        print("conv_encoder", self.conv_decoder)
-        print("type of decoder", type(self.conv_decoder))
+            raise ValueError(
+                f"value for conv_encoder_name={conv_encoder_name} is not valid. Has to be one of {list(_VALID_CONV_MODULES.keys())}")
+        if conv_decoder_name in _VALID_CONV_MODULES:
+            # if fc_decoder_layers[-1] != _CONV_MODULES_INPUT_DIM[conv_decoder_name]:
+            #     raise ValueError(
+            #         f"Last input in fc_decoder_layers needs to be {_CONV_MODULES_INPUT_DIM[conv_decoder_name]} for {conv_decoder_name} architecture, but is fc_decoder_layers[0] = {fc_decoder_layers[-1]}")
+            self.conv_decoder = _VALID_CONV_MODULES[conv_decoder_name]["dec"](latent_dim=fc_decoder_layers[-1],
+                                                                              input_height=self.input_height,
+                                                                              first_conv=True, maxpool1=True,
+                                                                              pretrained_weights=pretrained_decoder_weights)
+        else:
+            raise ValueError(
+                f"value for conv_decoder_name={conv_decoder_name} is not valid. Has to be one of {list(_VALID_CONV_MODULES.keys())}")
+
         # Initialize encoder
-        self.fc_encoder = FullyConnectedBlock(layers=fc_layers, activation_fn=activation_fn, output_fn=None, **fc_kwargs)
+        self.fc_encoder = FullyConnectedBlock(layers=fc_layers, activation_fn=activation_fn, output_fn=None,
+                                              **fc_kwargs)
         # Inverts the list of layers to make symmetric version of the encoder
-        self.fc_decoder = FullyConnectedBlock(layers=fc_decoder_layers, activation_fn=activation_fn, output_fn=decoder_output_fn, **fc_kwargs)
-        self.to(self.device)
+        self.fc_decoder = FullyConnectedBlock(layers=fc_decoder_layers, activation_fn=activation_fn,
+                                              output_fn=decoder_output_fn, **fc_kwargs)
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Apply the encoder function to x.
+        Apply the encoder function to x. Runs x through the conv_encoder and then the fc_encoder.
 
         Parameters
         ----------
-        x : input data point, can also be a mini-batch of points
-        
+        x : torch.Tensor
+            input data point, can also be a mini-batch of points
+
         Returns
         -------
-        embedded : the embedded data point with dimensionality embedding_size
+        embedded : torch.Tensor
+            the embedded data point with dimensionality embedding_size
         """
-        z = self.conv_encoder(x)
-        return self.fc_encoder(z)
+        embedded = self.conv_encoder(x)
+        embedded = self.fc_encoder(embedded)
+        return embedded
 
     def decode(self, embedded: torch.Tensor) -> torch.Tensor:
         """
-        Apply the decoder function to embedded.
+        Apply the decoder function to embedded. Runs x through the conv_decoder and then the fc_decoder.
 
         Parameters
         ----------
-        embedded: embedded data point, can also be a mini-batch of embedded points
-        
-        Returns
-        -------
-        reconstruction: returns the reconstruction of a data point
-        """
-        x = self.fc_decoder(embedded)
-
-        return self.conv_decoder(x)
-
-
-    def loss_view_invariance(self, batch_data, loss_fn, device):
-        """
-        Calculate the loss of a single batch of data by reconstructing the .
-
-        Parameters
-        ----------
-        batch_data : torch.Tensor, the samples
-        loss_fn : torch.nn, loss function to be used for reconstruction
-        device : device to train on
+        embedded : torch.Tensor
+            embedded data point, can also be a mini-batch of embedded points
 
         Returns
         -------
-        loss: returns the reconstruction loss of the input sample
+        decoded : torch.Tensor
+            returns the reconstruction of embedded
         """
-        side = batch_data[0].to(device)
-        upper = batch_data[1].to(device)
-        
-        reconstruction = self.forward(side)
-        loss = loss_fn(reconstruction, upper)
-        return loss
-
+        decoded = self.fc_decoder(embedded)
+        decoded = self.conv_decoder(decoded)
+        return decoded
