@@ -53,8 +53,9 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on raw data", my_nmi)
 
 print(device)
+optimizer_params = {"lr": 1e-3}
 conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=10,
-                                                                                                lr=1e-3, data=X_train_minmax,
+                                                                                                optimizer_params=optimizer_params, data=X_train_minmax,
                                                                                                 device=device)
 
 conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
