@@ -179,6 +179,7 @@ class _AbstractAutoencoder(torch.nn.Module):
         """
         assert type(batch) is list, "batch must come from a dataloader and therefore be of type list"
         batch_data = batch[1].to(device)
+        self = self.to(device)
         embedded = self.encode(batch_data)
         reconstructed = self.decode(embedded)
         loss = loss_fn(reconstructed, batch_data)
