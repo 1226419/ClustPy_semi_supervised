@@ -1010,6 +1010,10 @@ def nrkmeans_init(data: np.ndarray, n_clusters: list, rounds: int = 10, max_iter
     """
     best = None
     lowest = np.inf
+    print("what is going on")
+    print(n_clusters)
+    print(data.shape)
+    print(max(n_clusters))
     if max(n_clusters) >= data.shape[1]:
         mdl_for_noisespace = True
         if debug:
