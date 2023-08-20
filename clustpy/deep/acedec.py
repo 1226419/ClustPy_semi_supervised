@@ -805,7 +805,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                  clustering_learning_rate=1e-4, pretrain_epochs=100, clustering_epochs=150, tolerance_threshold=None,
                  optimizer_class=torch.optim.Adam, loss_fn=torch.nn.MSELoss(),
                  degree_of_space_distortion=1.0, degree_of_space_preservation=1.0, autoencoder=None,
-                 embedding_size=20, init="nrkmeans", random_state=None, device=None, scheduler=None,
+                 embedding_size=20, init="acedec", random_state=None, device=None, scheduler=None,
                  scheduler_params=None, init_kwargs=None, init_subsample_size=None, debug=False, print_step=10,
                  recluster: bool = True):
         self.n_clusters = n_clusters
