@@ -5,7 +5,7 @@ from clustpy.deep._data_utils import get_dataloader
 from clustpy.deep._train_utils import get_trained_autoencoder
 from clustpy.utils.plots import plot_scatter_matrix, plot_2d_data
 from clustpy.deep.enrc import enrc_init, enrc_predict_batchwise,_get_P, _rotate, _rotate_back, enrc_predict, \
-    reinit_centers, _are_labels_equal
+    reinit_centers, _are_labels_equal, available_init_strategies
 # from cluspy.deep.acedec import acedec_init
 from clustpy.deep.dcn import DCN
 from sklearn.base import BaseEstimator, ClusterMixin
@@ -551,11 +551,6 @@ def beta_weights_init(P, n_dims, high_value=0.9):
 """
 ===================== ACEDEC  =====================
 """
-def available_init_strategies():
-    """ Returns list of strings of available initialization strategies for ENRC.
-    """
-    return ['nrkmeans', 'random', 'sgd', 'auto']
-
 
 def acedec_init(y, embedded_data, n_clusters, init="auto", rounds=10, input_centers=None, P=None, V=None,
                 random_state=None,
