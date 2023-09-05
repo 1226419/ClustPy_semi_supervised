@@ -119,7 +119,7 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on encoded training data", my_nmi)
 """
 print("Convolutional Autoencoder created")
-dec = ACeDeC(10, autoencoder=conv_autoencoder, debug=True, pretrain_epochs=100, clustering_epochs=100, custom_dataloaders=[train_dl, dl],
+dec = ACeDeC(10, autoencoder=conv_autoencoder, debug=True, pretrain_epochs=100, clustering_epochs=200, custom_dataloaders=[train_dl, dl],
              device=device, final_reclustering=True, batch_size=128)
 # supervised fit
 #dec.fit(data, labels)
