@@ -24,7 +24,7 @@ print(len(labels))
 X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2) # random state can be added
 # setup convolutional Autoencoder for mnist training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 input_height = 28
-fc_layers = [512, 500, 500, 2000, 20]
+fc_layers = [512, 10]
 if torch.cuda.is_available():
     device = torch.device('cuda')
 
