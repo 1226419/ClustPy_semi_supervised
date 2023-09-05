@@ -39,9 +39,9 @@ print(len(labels))
 
 # setup convolutional Autoencoder for mnist training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 input_height = 32
-fc_layers = [512, 500, 500, 2000, 20]
-#fc_layers = [512,10]
-fc_layers = [512, 500, 500, 2000, 10]
+#fc_layers = [512, 500, 500, 2000, 20]
+fc_layers = [512, 10]
+#fc_layers = [512, 500, 500, 2000, 10]
 if torch.cuda.is_available():
     device = torch.device('cuda')
 
@@ -94,7 +94,7 @@ print("NMI Test set Kmeans on raw data", my_nmi)
 
 print(device)
 optimizer_params = {"lr": 1e-3}
-conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=10,
+conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=50,
                                                                                                 optimizer_params=optimizer_params, dataloader=train_dl,
                                                                                                 device=device)
 
