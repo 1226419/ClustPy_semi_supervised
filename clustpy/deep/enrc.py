@@ -2036,6 +2036,7 @@ class ENRC(BaseEstimator, ClusterMixin):
             returns the ENRC object
         """
         augmentation_invariance_check(self.augmentation_invariance, self.custom_dataloaders)
+        print("hier läuft")
         cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering = _enrc(X=X,
                                                                                                                             n_clusters=self.n_clusters,
                                                                                                                             V=self.V,
