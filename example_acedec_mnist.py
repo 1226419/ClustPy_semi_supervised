@@ -17,7 +17,7 @@ def minmax(X):
 
 data, labels = load_mnist()
 print(data.shape)
-data = data.reshape(70000, 1, 28, 28)
+data = data.reshape(-1, 1, 28, 28)
 print(data.shape)
 print(len(labels))
 
