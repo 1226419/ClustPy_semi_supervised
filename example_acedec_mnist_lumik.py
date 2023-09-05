@@ -5,6 +5,7 @@ from sklearn.metrics import normalized_mutual_info_score as nmi
 from clustpy.deep.autoencoders.convolutional_autoencoder import ConvolutionalAutoencoder
 from clustpy.deep._data_utils import check_if_data_is_normalized
 from sklearn.model_selection import train_test_split
+from clustpy.deep import encode_batchwise, get_dataloader
 import torchvision
 import numpy as np
 import torch
@@ -65,6 +66,15 @@ X_train_minmax_kmeans_shape = X_train_minmax.reshape(len(X_train_minmax), 3, inp
 X_train_minmax_kmeans_shape = X_train_minmax_kmeans_shape[:, 0, :].squeeze()
 kmeans = KMeans(n_clusters=10, random_state=0, n_init="auto").fit(X_train_minmax_kmeans_shape)
 
+# preprocessing functions
+normalize_fn = torchvision.transforms.Normalize([mean], [std])
+orig_transforms = torchvision.transforms.Compose([normalize_fn])
+
+train_dl = get_dataloader(X_train, batch_size=256, shuffle=True,
+                        ds_kwargs={"orig_transforms_list":[orig_transforms]},
+                        dl_kwargs={"num_workers":6})
+dl = get_dataloader(X_train, 256, shuffle=False,
+                   ds_kwargs={"orig_transforms_list":[orig_transforms]})
 my_ari = ari(y_train, kmeans.labels_)
 print("ARI Training set Kmeans on raw data", my_ari)
 
@@ -83,7 +93,7 @@ print("NMI Test set Kmeans on raw data", my_nmi)
 print(device)
 optimizer_params = {"lr": 1e-3}
 conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=10,
-                                                                                                optimizer_params=optimizer_params, data=X_train_minmax,
+                                                                                                optimizer_params=optimizer_params, dataloader=train_dl,
                                                                                                 device=device)
 
 conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
@@ -107,7 +117,7 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on encoded training data", my_nmi)
 """
 print("Convolutional Autoencoder created")
-dec = ACeDeC(10, autoencoder=conv_autoencoder, debug=True, pretrain_epochs=30, clustering_epochs=100,
+dec = ACeDeC(10, autoencoder=conv_autoencoder, debug=True, pretrain_epochs=30, clustering_epochs=100, custom_dataloaders=[train_dl, dl],
              device=device, final_reclustering=True, batch_size=128)
 # supervised fit
 #dec.fit(data, labels)
@@ -124,7 +134,7 @@ percentage = 0.0
 semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
 print("acedec created")
 # semi-supervised fit
-dec.fit(X_train_minmax, semi_supervised_labels)
+dec.fit(X_train, semi_supervised_labels)
 print("acedec fit")
 
 #dec.fit(data)

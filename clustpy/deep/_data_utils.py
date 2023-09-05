@@ -223,7 +223,9 @@ def get_dataloader(X: np.ndarray, batch_size: int, shuffle: bool = True, drop_la
 
 
 def check_if_data_is_normalized(X):
-
+    if X is None:
+        print("X is None")
+        return False
     if X.min() < 0.0:
         print("negative data values found")
 
