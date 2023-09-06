@@ -191,7 +191,7 @@ class DecoderBottleneck(nn.Module):
 
 
 class ResNetEncoder(nn.Module):
-    def __init__(self, block, layers, first_conv=False, maxpool1=False, in_channels=3):
+    def __init__(self, block, layers, first_conv=False, maxpool1=False, in_channels=1):
         super().__init__()
 
         self.inplanes = 64
