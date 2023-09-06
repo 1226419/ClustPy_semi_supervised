@@ -191,7 +191,7 @@ class DecoderBottleneck(nn.Module):
 
 
 class ResNetEncoder(nn.Module):
-    def __init__(self, block, layers, first_conv=False, maxpool1=False):
+    def __init__(self, block, layers, first_conv=False, maxpool1=False, in_channels=3):
         super().__init__()
 
         self.inplanes = 64
@@ -199,9 +199,9 @@ class ResNetEncoder(nn.Module):
         self.maxpool1 = maxpool1
 
         if self.first_conv:
-            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
+            self.conv1 = nn.Conv2d(in_channels, self.inplanes, kernel_size=7, stride=2, padding=3, bias=False)
         else:
-            self.conv1 = nn.Conv2d(3, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
+            self.conv1 = nn.Conv2d(in_channels, self.inplanes, kernel_size=3, stride=1, padding=1, bias=False)
 
         self.bn1 = nn.BatchNorm2d(self.inplanes)
         self.relu = nn.ReLU(inplace=True)
@@ -252,7 +252,7 @@ class ResNetEncoder(nn.Module):
 class ResNetDecoder(nn.Module):
     """Resnet in reverse order."""
 
-    def __init__(self, block, layers, latent_dim, input_height, first_conv=False, maxpool1=False):
+    def __init__(self, block, layers, latent_dim, input_height, first_conv=False, maxpool1=False, out_channels=1):
         super().__init__()
 
         self.expansion = block.expansion
@@ -290,7 +290,7 @@ class ResNetDecoder(nn.Module):
 
         self.upscale1 = Interpolate(size=interpolation_size)
 
-        self.conv1 = nn.Conv2d(64 * block.expansion, 3, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(64 * block.expansion, out_channels, kernel_size=3, stride=1, padding=1, bias=False)
 
     def _make_layer(self, block, planes, blocks, scale=1):
         upsample = None
