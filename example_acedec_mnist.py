@@ -77,7 +77,7 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on encoded training data", my_nmi)
 
 print("Convolutional Autoencoder created")
-dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=10, print_step=50,
+dec = ACEDEC([10,1], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=30, clustering_epochs=100, print_step=50,
              device=device, recluster=True)
 # supervised fit
 #dec.fit(data, labels)
@@ -90,7 +90,7 @@ dec = ACEDEC([10], autoencoder=conv_autoencoder, debug=True, pretrain_epochs=2, 
 # randomly assign some values of labels array to -1
 semi_supervised_labels = y_train.copy()
 # percentage 1.0 is unsupervised, 0.0 is supervised
-percentage = 0.0
+percentage = 1.0
 semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
 print("acedec created")
 # semi-supervised fit
