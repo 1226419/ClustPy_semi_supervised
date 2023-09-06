@@ -72,10 +72,10 @@ kmeans = KMeans(n_clusters=10, random_state=0, n_init="auto").fit(X_train_minmax
 normalize_fn = torchvision.transforms.Normalize([mean], [std])
 orig_transforms = torchvision.transforms.Compose([normalize_fn])
 
-train_dl = get_dataloader(X_train, batch_size=256, shuffle=True,
+train_dl = get_dataloader(data, batch_size=256, shuffle=True,
                         ds_kwargs={"orig_transforms_list":[orig_transforms]},
-                        dl_kwargs={"num_workers":6})
-dl = get_dataloader(X_train, 256, shuffle=False,
+                        dl_kwargs={"num_workers":16})
+dl = get_dataloader(data, 256, shuffle=False,
                    ds_kwargs={"orig_transforms_list":[orig_transforms]})
 my_ari = ari(y_train, kmeans.labels_)
 print("ARI Training set Kmeans on raw data", my_ari)
@@ -119,7 +119,7 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on encoded training data", my_nmi)
 """
 print("Convolutional Autoencoder created")
-dec = ACeDeC(10, autoencoder=conv_autoencoder, debug=True, pretrain_epochs=100, clustering_epochs=1000, custom_dataloaders=[train_dl, dl],
+dec = ACeDeC(10, autoencoder=conv_autoencoder, debug=True, pretrain_epochs=100, clustering_epochs=100, custom_dataloaders=[train_dl, dl],
              device=device, final_reclustering=True, batch_size=128)
 # supervised fit
 #dec.fit(data, labels)
