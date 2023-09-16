@@ -154,6 +154,11 @@ semi_supervised_labels = y_train.copy()
 percentage = 0.0
 semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
 print("acedec created")
+dec.fit(data)
+acedec_ari = ari(labels, dec.labels_)
+print(f"ARI: {acedec_ari}")
+print(f"ARI-no-reclustering: {ari(labels, dec.acedec_labels_)}")
+"""
 # semi-supervised fit
 dec.fit(X_train, semi_supervised_labels)
 print("acedec fit")
@@ -186,3 +191,5 @@ print("ari", my_ari)
 
 my_nmi = nmi(y_test, labels_test)
 print("nmi", my_nmi)
+
+"""
