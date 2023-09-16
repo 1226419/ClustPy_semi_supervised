@@ -11,7 +11,19 @@ import numpy as np
 import torch
 from sklearn.cluster import KMeans
 print("Hi World")
+import pytorch_warmup as warmup
+from torch.optim.lr_scheduler import CosineAnnealingLR
 
+class CosineSchedulerWithLinearWarmup(object):
+    def __init__(self, optimizer, warmup_period, T_max, eta_min=0, last_epoch=-1, verbose=False):
+        self.T_max = T_max
+        self.eta_min = eta_min
+        self.warmup_period = warmup_period
+        self.warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
+        self.cosine_scheduler =  CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min, last_epoch=last_epoch, verbose=verbose)
+    def step(self):
+        with self.warmup_scheduler.dampening():
+            self.cosine_scheduler.step()
 
 def znorm(X):
     return (X - torch.mean(X)) / torch.std(X)
@@ -94,9 +106,16 @@ print("NMI Test set Kmeans on raw data", my_nmi)
 
 print(device)
 optimizer_params = {"lr": 1e-3}
-conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=50,
+weight_decay = 0.01
+n_epochs = 50
+warmup_factor = 0.3
+warmup_period = int(warmup_factor*n_epochs)
+scheduler = CosineSchedulerWithLinearWarmup
+scheduler_params = {"warmup_period":warmup_period, "T_max":n_epochs, "verbose":True}
+conv_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=fc_layers).fit(n_epochs=n_epochs,
                                                                                                 optimizer_params=optimizer_params, dataloader=train_dl,
-                                                                                                device=device)
+                                                                                                device=device, print_step=5,
+           optimizer_class=lambda params, lr: torch.optim.AdamW(params, lr, weight_decay=weight_decay), scheduler=scheduler, scheduler_params=scheduler_params)
 
 conv_autoencoder = conv_autoencoder.eval()# batch norm goes to another mode
 # TODO: https://stackoverflow.com/questions/58447885/pytorch-going-back-and-forth-between-eval-and-train-modes
