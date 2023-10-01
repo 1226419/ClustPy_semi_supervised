@@ -25,7 +25,7 @@ def minmax(X):
 
 data, labels = load_mnist()
 print(data.shape)
-#data = data.reshape(-1, 1, 28, 28)
+data = data.reshape(-1, 1, 28, 28)
 print(data.shape)
 print(len(labels))
 
@@ -54,8 +54,9 @@ for percentage in percentages_of_unlabeled_data:
                                       labels_true=y_train, labels_train=semi_supervised_labels))
 
 optimizer_params = {"lr": 1e-3}
-feed_forward_layers = [input_height*input_height, 500, 500, 2000, 20]
-feed_forward_autoencoder = FeedforwardAutoencoder(layers=feed_forward_layers, reusable=True).fit(n_epochs=100, optimizer_params=optimizer_params, data=X_train_minmax)
+# FEED forward needs data to be in different shape
+#feed_forward_layers = [input_height*input_height, 500, 500, 2000, 20]
+#feed_forward_autoencoder = FeedforwardAutoencoder(layers=feed_forward_layers, reusable=True).fit(n_epochs=100, optimizer_params=optimizer_params, data=X_train_minmax)
 convolutional_layers = [512, 10] # the resnet comes between
 convolutional_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=convolutional_layers, reusable=True).fit(n_epochs=50,
                                                                                                 optimizer_params=optimizer_params, data=X_train_minmax,
@@ -63,10 +64,10 @@ convolutional_autoencoder = ConvolutionalAutoencoder(input_height=input_height, 
 
 algorithmns = [
 
-    EvaluationAlgorithm("ACEDEC_feed_forward_autoencoder_100", ACEDEC, {"n_clusters": [10,1], "autoencoder":
-        feed_forward_autoencoder,  "debug": False, "pretrain_epochs": 30, "clustering_epochs": 100,
+    EvaluationAlgorithm("ACEDEC_convolutional_autoencoder_200", ACEDEC, {"n_clusters": [10,1], "autoencoder":
+        convolutional_autoencoder,  "debug": False, "pretrain_epochs": 30, "clustering_epochs": 200,
                                                                    "print_step": 50, "recluster": True}),
-    EvaluationAlgorithm("ACEDEC_convolutional_autoencoder_1000", ACEDEC, {"n_clusters": [10,1], "autoencoder":
+    EvaluationAlgorithm("ACEDEC_convolutional_autoencoder_100", ACEDEC, {"n_clusters": [10,1], "autoencoder":
         convolutional_autoencoder,  "debug": False, "pretrain_epochs": 30,  "clustering_epochs": 100,
                                                                  "print_step": 50, "recluster": True})
 
