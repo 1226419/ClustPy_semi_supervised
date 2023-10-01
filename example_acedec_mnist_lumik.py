@@ -163,7 +163,7 @@ warmup_period = int(warmup_factor*clustering_epochs)
 # scheduler = CosineSchedulerWithLinearWarmup
 # scheduler_params = {"warmup_period":warmup_period, "T_max":clustering_epochs, "verbose":False}
 scheduler = torch.optim.lr_scheduler.StepLR
-scheduler_params = {"step_size":int(0.2*clustering_epochs), "gamma":0.5, "verbose": True}
+scheduler_params = {"step_size": int(0.2*clustering_epochs), "gamma": 0.5, "verbose": True}
 
 dec = ACeDeC(10, autoencoder=conv_autoencoder, debug=True, pretrain_epochs=100, clustering_epochs=clustering_epochs, custom_dataloaders=[train_dl, dl],
              device=device, final_reclustering=True,          scheduler=scheduler, clustering_optimizer_params={'lr': 1e-3*0.5}, init_subsample_size=10000,

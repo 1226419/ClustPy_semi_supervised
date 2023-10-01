@@ -108,7 +108,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                      iteration_specific_autoencoders: list = None, aggregation_functions: list = [np.mean, np.std],
                      add_runtime: bool = True, add_n_clusters: bool = False, save_path: str = None,
                      save_labels_path: str = None, ignore_algorithms: list = [],
-                     random_state: np.random.RandomState = None) -> pd.DataFrame:
+                     random_state: np.random.RandomState = None, labels_train: np.ndarray = None,) -> pd.DataFrame:
     """
     Evaluate the clustering result of different clustering algorithms (as specified by evaluation_algorithms) on a given data set using different metrics (as specified by evaluation_metrics).
     Each algorithm will be executed n_repetitions times and all specified metrics will be used to evaluate the clustering result.
@@ -150,8 +150,8 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
         List of algorithm names (as specified in the EvaluationAlgorithm object) that should be ignored for this specific data set (default: [])
     random_state : np.random.RandomState
         use a fixed random state to get a repeatable solution. Can also be of type int (default: None)
-    y : np.ndarray
-        initial labels used for semisupervised clustering
+    labels_train : np.ndarray
+        training labels used for semisupervised clustering
 
     Returns
     -------
@@ -246,7 +246,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 # Execute algorithm
                 start_time = time.time()
                 algo_obj = eval_algo.algorithm(**eval_algo.params)
-                print("labels", y)
+                print("labels", labels_train)
                 # Check if algorithm uses an autoencoder and wether iteration_specific autoencoders are defined
                 if iteration_specific_autoencoders is not None:
                     eval_autoencoder = iteration_specific_autoencoders[rep]
@@ -261,8 +261,8 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                                               torch.load(eval_autoencoder.path_custom_dataloaders[1]))
                         algo_obj.custom_dataloaders = custom_dataloaders
                 try:
-                    if y is not None:
-                        algo_obj.fit(X_processed, y)
+                    if labels_train is not None:
+                        algo_obj.fit(X_processed, labels_train)
                     else:
                         algo_obj.fit(X_processed)
                 except Exception as e:
@@ -449,10 +449,11 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
         try:
             assert type(eval_data) is EvaluationDataset, "All datasets must be of type EvaluationDataset"
             print("=== Start evaluation of {0} ===".format(eval_data.name))
-            X, labels_true, X_test, labels_true_test = _get_data_and_labels_from_evaluation_dataset(eval_data.data,
+            X, labels_true, X_test, labels_true_test, labels_train = _get_data_and_labels_from_evaluation_dataset(eval_data.data,
                                                                                                     eval_data.data_loader_params,
                                                                                                     eval_data.labels_true,
-                                                                                                    eval_data.train_test_split)
+                                                                                                    eval_data.train_test_split,
+                                                                                                    eval_data.labels_train)
             print("=== (Data shape: {0} / Ground truth shape: {1}) ===".format(X.shape,
                                                                                labels_true if labels_true is None else labels_true.shape))
             if eval_data.preprocess_methods is not None:
@@ -472,7 +473,7 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
                                   add_runtime=add_runtime, add_n_clusters=add_n_clusters, save_path=inner_save_path,
                                   save_labels_path=inner_save_labels_path,
                                   ignore_algorithms=eval_data.ignore_algorithms, random_state=random_state,
-                                  y=eval_data.y)
+                                  labels_train=eval_data.labels_train)
             df_list.append(df)
         except Exception as e:
             print("Dataset {0} raised an exception and will be skipped".format(eval_data.name))
@@ -488,7 +489,8 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
 
 
 def _get_data_and_labels_from_evaluation_dataset(data_input: np.ndarray, data_loader_params_input: dict,
-                                                 labels_input: np.ndarray, train_test_split: np.ndarray) -> (
+                                                 labels_input: np.ndarray, train_test_split: np.ndarray,
+                                                 labels_train: np.ndarray) -> (
         np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """
     Use the parameters stored in the EvaluationDataset to load the data and the labels.
@@ -507,6 +509,8 @@ def _get_data_and_labels_from_evaluation_dataset(data_input: np.ndarray, data_lo
         Specifies if the laoded dataset should be split into a train and test set. Can be of type bool, list or np.ndarray.
         If train_test_split is a boolean and true, the data loader will use the parameter "subset" to load a train and test set. In that case data must be a callable.
         If train_test_split is a list/np.ndarray, the entries specify the indices of the data array that should be used for the train set
+    labels_train: np.ndarray
+        labels used for training semisupervised models.
 
     Returns
     -------
@@ -515,6 +519,7 @@ def _get_data_and_labels_from_evaluation_dataset(data_input: np.ndarray, data_lo
         The labels (can be None),
         The test dataset (can be None),
         The test labels (can be None)
+        The train labels (can be None)
     """
     # If data is a path read file. If it is a callable load data
     labels_true = None
@@ -547,7 +552,9 @@ def _get_data_and_labels_from_evaluation_dataset(data_input: np.ndarray, data_lo
         if labels_true is not None:
             labels_true_test = labels_true[test_subset]
             labels_true = labels_true[~test_subset]
-    return X, labels_true, X_test, labels_true_test
+        if labels_train is not None:
+            labels_train = labels_train[~test_subset]
+    return X, labels_true, X_test, labels_true_test, labels_train
 
 
 def evaluation_df_to_latex_table(df: pd.DataFrame, output_path: str, use_std: bool = True, best_in_bold: bool = True,
@@ -717,7 +724,7 @@ class EvaluationDataset():
         Can be None if no iteration-specific autoencoders are used (default: None)
     ignore_algorithms : list
         List of algorithm names (as specified in the EvaluationAlgorithm object) that should be ignored for this specific data set (default: [])
-    y : np.ndarray
+    labels_train : np.ndarray
         initial labels used for semisupervised clustering
     Examples
     ----------
@@ -731,7 +738,7 @@ class EvaluationDataset():
 
     def __init__(self, name: str, data: np.ndarray, labels_true: np.ndarray = None, data_loader_params: dict = {},
                  train_test_split: bool = None, preprocess_methods: list = None, preprocess_params: list = {},
-                 iteration_specific_autoencoders: list = None, ignore_algorithms: list = [], y=None):
+                 iteration_specific_autoencoders: list = None, ignore_algorithms: list = [], labels_train=None):
         assert type(name) is str, "name must be a string"
         self.name = name
         assert type(data) is np.ndarray or type(data) is str or callable(data), "data must be a numpy array, a string " \
@@ -759,8 +766,8 @@ class EvaluationDataset():
         self.iteration_specific_autoencoders = iteration_specific_autoencoders
         assert type(ignore_algorithms) is list, "ignore_algorithms must be a list"
         self.ignore_algorithms = ignore_algorithms
-        assert y is None or type(y) is np.ndarray, "y must be a numpy array or None"
-        self.y = y
+        assert labels_train is None or type(labels_train) is np.ndarray, "labels_train must be a numpy array or None"
+        self.labels_train = labels_train
 
 
 class EvaluationMetric():

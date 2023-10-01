@@ -82,9 +82,9 @@ print("NMI Test set Kmeans on encoded training data", my_nmi)
 
 dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=100, print_step=50)
 nmi_scorer = make_scorer(nmi)
-#hyperparameter_grid_search = GridSearchCV(dec, grid_search_parameters, scoring=nmi_scorer)
-#yperparameter_grid_search.fit(X_validation, y_validation)
-#print(hyperparameter_grid_search.cv_results_)
+hyperparameter_grid_search = GridSearchCV(dec, grid_search_parameters, scoring=nmi_scorer)
+hyperparameter_grid_search.fit(X_validation, y_validation)
+print(hyperparameter_grid_search.cv_results_)
 # supervised fit
 #dec.fit(data, labels)
 
