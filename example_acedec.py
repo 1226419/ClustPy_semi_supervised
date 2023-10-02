@@ -51,8 +51,7 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on raw data", my_nmi)
 
 # parameters for the grid search
-grid_search_parameters = { "pretrain_learning_rate": [1e-3, 1e-4],
-                 "clustering_learning_rate": [1e-3, 1e-5], "pretrain_epochs": [30, 100], "clustering_epochs": [100, 400]}
+
 
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 # small_autoencoder = None
@@ -84,11 +83,19 @@ print("setup model (ACEDEC)")
 dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, print_step=50)
 
 print("starting hyperparameter search")
+# percentage 1.0 is unsupervised, 0.0 is supervised
+percentage = 0.5
+semi_supervised_labels = y_train.copy()
+semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
 
 nmi_scorer = make_scorer(nmi)
+grid_search_parameters = { "pretrain_learning_rate": [1e-3, 1e-4],
+                 "clustering_learning_rate": [1e-3, 1e-5], "pretrain_epochs": [30, 100], "clustering_epochs": [100, 400]}
 hyperparameter_grid_search = GridSearchCV(dec, grid_search_parameters, scoring=nmi_scorer)
-hyperparameter_grid_search.fit(X_train, y_train)
+hyperparameter_grid_search.fit(X_train, semi_supervised_labels)
 print(hyperparameter_grid_search.cv_results_)
+#todo try without lrs
+
 """
 # supervised fit
 # dec.fit(data, labels)
