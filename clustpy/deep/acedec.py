@@ -308,8 +308,9 @@ class _ACeDeC_Module(torch.nn.Module):
         # Encode data
         embedded_data = encode_batchwise(dataloader, model, device)
         embedded_rot = np.matmul(embedded_data, V)
-        print("embedded_rot", embedded_rot)
         """
+        print("embedded_rot", embedded_rot)
+        
         # Apply reclustering in the rotated space, because V does not have to be orthogonal, so it could learn a mapping that is not recoverable by nrkmeans.
         centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
                                                                 max_iter=300, learning_rate=self.learning_rate,
@@ -370,6 +371,7 @@ class _ACeDeC_Module(torch.nn.Module):
         # Save learning rate for reclustering
         self.learning_rate = optimizer.param_groups[0]["lr"]
         # Evalloader is used for checking label change. Only difference to the trainloader here is that shuffle=False.
+        """
         print("data", data.shape)
         labels = labels[:, None]
         print("labels", labels)
@@ -378,7 +380,8 @@ class _ACeDeC_Module(torch.nn.Module):
         print("data", data.dtype)
         print("labels type", type(labels))
         print("data type", type(data))
-
+        """
+        labels = labels[:, None] # what is that ??
         # data_tensor = torch.from_numpy(data)
 
         trainloader = get_dataloader(data, additional_inputs=labels,
@@ -922,7 +925,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                       dataloader=dataloader,
                                       device=self.device,
                                       use_P=use_P,
-                                      )
+                                      )[:, 0]
 
     def transform_full_space(self, X, embedded=False):
         """

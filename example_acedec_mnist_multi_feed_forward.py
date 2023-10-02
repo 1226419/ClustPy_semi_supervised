@@ -42,7 +42,7 @@ else:
 X_train_minmax = minmax(X_train)
 check_if_data_is_normalized(X_train_minmax)
 X_train_minmax_kmeans_shape = X_train_minmax.reshape(len(X_train_minmax), 784)
-print(X_train_minmax.shape)
+
 #percentages_of_unlabeled_data = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 percentages_of_unlabeled_data = [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
 # percentages_of_unlabeled_data = [0.0, 1.0]
@@ -55,20 +55,17 @@ for percentage in percentages_of_unlabeled_data:
 
 optimizer_params = {"lr": 1e-3}
 # FEED forward needs data to be in different shape
-#feed_forward_layers = [input_height*input_height, 500, 500, 2000, 20]
-#feed_forward_autoencoder = FeedforwardAutoencoder(layers=feed_forward_layers, reusable=True).fit(n_epochs=100, optimizer_params=optimizer_params, data=X_train_minmax)
-convolutional_layers = [512, 10] # the resnet comes between
-convolutional_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=convolutional_layers, reusable=True).fit(n_epochs=50,
-                                                                                                optimizer_params=optimizer_params, data=X_train_minmax,
-                                                                                                device=device)
+feed_forward_layers = [input_height*input_height, 500, 500, 2000, 20]
+feed_forward_autoencoder = FeedforwardAutoencoder(layers=feed_forward_layers, reusable=True).fit(n_epochs=100, optimizer_params=optimizer_params, data=X_train_minmax)
+
 
 algorithmns = [
 
     EvaluationAlgorithm("ACEDEC_convolutional_autoencoder_200", ACEDEC, {"n_clusters": [10,1], "autoencoder":
-        convolutional_autoencoder,  "debug": False, "pretrain_epochs": 30, "clustering_epochs": 200,
+        feed_forward_autoencoder,  "debug": False, "pretrain_epochs": 30, "clustering_epochs": 200,
                                                                    "print_step": 50, "recluster": True}),
     EvaluationAlgorithm("ACEDEC_convolutional_autoencoder_100", ACEDEC, {"n_clusters": [10,1], "autoencoder":
-        convolutional_autoencoder,  "debug": False, "pretrain_epochs": 30,  "clustering_epochs": 100,
+        feed_forward_autoencoder,  "debug": False, "pretrain_epochs": 30,  "clustering_epochs": 100,
                                                                  "print_step": 50, "recluster": True})
 
 ]

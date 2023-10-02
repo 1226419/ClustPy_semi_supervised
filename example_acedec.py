@@ -19,11 +19,11 @@ def minmax(X):
 print("Loading data")
 # Load data
 data, labels = load_banknotes()
-
+print("number of datapoints", len(data))
 #data, labels = load_mnist()
 # Splitting data into train test and validation sets
 X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2) # random state can be added
-
+print("number of training datapoints:", len(X_train))
 X_train, X_validation, y_train, y_validation = train_test_split(X_train, y_train, test_size=0.2)
 # Normalize data
 if not check_if_data_is_normalized(X_train):
@@ -52,7 +52,7 @@ print("NMI Test set Kmeans on raw data", my_nmi)
 
 # parameters for the grid search
 grid_search_parameters = { "pretrain_learning_rate": [1e-3, 1e-4],
-                 "clustering_learning_rate": [1e-4, 1e-5], "pretrain_epochs": [10, 100], "clustering_epochs": [10, 150]}
+                 "clustering_learning_rate": [1e-3, 1e-5], "pretrain_epochs": [30, 100], "clustering_epochs": [100, 400]}
 
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 # small_autoencoder = None
@@ -80,13 +80,18 @@ print("ARI Test set Kmeans on encoded training data", my_ari)
 my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on encoded training data", my_nmi)
 
-dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, pretrain_epochs=2, clustering_epochs=100, print_step=50)
+print("setup model (ACEDEC)")
+dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, print_step=50)
+
+print("starting hyperparameter search")
+
 nmi_scorer = make_scorer(nmi)
 hyperparameter_grid_search = GridSearchCV(dec, grid_search_parameters, scoring=nmi_scorer)
-hyperparameter_grid_search.fit(X_validation, y_validation)
+hyperparameter_grid_search.fit(X_train, y_train)
 print(hyperparameter_grid_search.cv_results_)
+"""
 # supervised fit
-#dec.fit(data, labels)
+# dec.fit(data, labels)
 
 # Create array of labels all having -1 vale
 # unsupervised_labels = np.full(len(labels), -1)
@@ -100,11 +105,12 @@ percentage = 0.1
 semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
 
 # semi-supervised fit
+print("start fit")
 dec.fit(data, semi_supervised_labels)
 
 
 #dec.fit(data)
-print(dec.labels_)
+print(dec.labels_.shape)
 predicted_labels = dec.labels_
 y_train = y_train.astype(int)
 
@@ -116,9 +122,8 @@ print("ARI Training set", my_ari)
 
 my_nmi = nmi(y_train, dec.labels_)
 print("NMI Training set", my_nmi)
-
 print("Test set")
-labels_test = dec.predict(X_test_znorm)[:, 0]
+labels_test = dec.predict(X_test_znorm)
 print(labels_test)
 print(y_test)
 
@@ -127,3 +132,4 @@ print("ARI Test set", my_ari)
 
 my_nmi = nmi(labels_test, y_test)
 print("NMI Test set", my_nmi)
+"""

@@ -45,10 +45,10 @@ medium_autoencoder = FeedforwardAutoencoder(layers=[4,  8], reusable=True).fit(n
 algorithmns = [
 
     EvaluationAlgorithm("ACEDEC_small_autoencoder_100", ACEDEC, {"n_clusters": [2, 1], "autoencoder":
-        small_autoencoder,  "debug": False, "pretrain_epochs":100, "clustering_epochs": 100,
+        small_autoencoder,  "debug": False, "pretrain_epochs":30, "clustering_epochs": 500,
                                                                    "print_step": 50}),
     EvaluationAlgorithm("ACEDEC_med_autoencoder_100", ACEDEC, {"n_clusters": [2, 1], "autoencoder":
-        medium_autoencoder,  "debug": False, "pretrain_epochs":100, "clustering_epochs": 100,
+        medium_autoencoder,  "debug": False, "pretrain_epochs":30, "clustering_epochs": 500,
                                                                  "print_step": 50})
 
 ]
