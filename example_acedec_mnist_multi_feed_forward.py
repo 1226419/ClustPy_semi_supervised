@@ -50,7 +50,7 @@ datasets = []
 for percentage in percentages_of_unlabeled_data:
     semi_supervised_labels = y_train.copy()
     semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train) * percentage), replace=False)] = -1
-    datasets.append(EvaluationDataset("MNIST_"+str(int((1.0-percentage)*100)) + "_percent_labeled", X_train_minmax,
+    datasets.append(EvaluationDataset("MNIST_"+str(int(round((1.0-percentage)*100))) + "_percent_labeled", X_train_minmax,
                                       labels_true=y_train, labels_train=semi_supervised_labels))
 
 optimizer_params = {"lr": 1e-3}

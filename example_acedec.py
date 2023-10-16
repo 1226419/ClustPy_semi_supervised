@@ -31,11 +31,11 @@ if not check_if_data_is_normalized(X_train):
     check_if_data_is_normalized(zdata)
     minmaxdata = minmax(X_train)
     check_if_data_is_normalized(X_train)
-    data = znorm(X_train)
+    data_znorm = znorm(X_train)
 
 # Check Kmeans result on basic data
 print(data.shape)
-kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(data)
+kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(data_znorm)
 
 my_ari = ari(y_train, kmeans.labels_)
 print("ARI Training set Kmeans on raw data", my_ari)
@@ -63,7 +63,7 @@ small_autoencoder = FeedforwardAutoencoder(layers=[4, 32, 8]).fit(n_epochs=100, 
 #medium_autoencoder = FeedforwardAutoencoder(layers=[4, 126, 64, 32, 8]).fit(n_epochs=1000, lr=1e-3, data=data)
 #small_autoencoder = FeedforwardAutoencoder(layers=[784, 32, 20]).fit(n_epochs=100, lr=1e-3, data=data)
 
-X_train_encoded = small_autoencoder.encode(torch.from_numpy(data).to(torch.float32)).detach().numpy()
+X_train_encoded = small_autoencoder.encode(torch.from_numpy(X_train).to(torch.float32)).detach().numpy()
 kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(X_train_encoded)
 
 my_ari = ari(y_train, kmeans.labels_)
@@ -85,14 +85,14 @@ dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, print_step=50)
 print("starting hyperparameter search")
 # percentage 1.0 is unsupervised, 0.0 is supervised
 percentage = 0.0
-semi_supervised_labels = y_train.copy()
-semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
+semi_supervised_labels = labels.copy()
+semi_supervised_labels[np.random.choice(len(labels), int(len(labels)*percentage), replace=False)] = -1
 
 nmi_scorer = make_scorer(nmi)
-grid_search_parameters = { "pretrain_learning_rate": [1e-3, 1e-4],
-                 "clustering_learning_rate": [1e-3, 1e-5], "pretrain_epochs": [30, 100], "clustering_epochs": [100, 400]}
+grid_search_parameters = { "pretrain_learning_rate": [ 1e-4],
+                 "clustering_learning_rate": [1e-3], "pretrain_epochs": [100], "clustering_epochs": [100, 400]}
 hyperparameter_grid_search = GridSearchCV(dec, grid_search_parameters, scoring=nmi_scorer)
-hyperparameter_grid_search.fit(X_train, semi_supervised_labels)
+hyperparameter_grid_search.fit(data, semi_supervised_labels)
 print(hyperparameter_grid_search.cv_results_)
 #todo try without lrs
 
