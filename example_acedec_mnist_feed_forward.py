@@ -18,7 +18,7 @@ def minmax(X):
 
 print("Loading data")
 # Load data
-data, labels = load_banknotes()
+data, labels = load_mnist()
 print("number of datapoints", len(data))
 #data, labels = load_mnist()
 # Splitting data into train test and validation sets
@@ -35,7 +35,7 @@ if not check_if_data_is_normalized(X_train):
 
 # Check Kmeans result on basic data
 print(data.shape)
-kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(data)
+kmeans = KMeans(n_clusters=10, random_state=0, n_init="auto").fit(data)
 
 my_ari = ari(y_train, kmeans.labels_)
 print("ARI Training set Kmeans on raw data", my_ari)
@@ -56,14 +56,16 @@ print("NMI Test set Kmeans on raw data", my_nmi)
 # setup smaller Autoencoder for faster training. Current default is [input_dim, 500, 500, 2000, embedding_size]
 # small_autoencoder = None
 # small_autoencoder = FeedforwardAutoencoder(layers=[4, 2, 2, 2, 2]).fit(n_epochs=100, lr=1e-3, data=data)
+input_height = 28
+feed_forward_layers = [784, 512, 256, 10]
 optimizer_params = {"lr": 1e-3}
-small_autoencoder = FeedforwardAutoencoder(layers=[4, 32, 8]).fit(n_epochs=100, optimizer_params=optimizer_params, data=data)
+autoencoder = FeedforwardAutoencoder(layers=feed_forward_layers).fit(n_epochs=3000, optimizer_params=optimizer_params, data=data)
 
 
 #medium_autoencoder = FeedforwardAutoencoder(layers=[4, 126, 64, 32, 8]).fit(n_epochs=1000, lr=1e-3, data=data)
 #small_autoencoder = FeedforwardAutoencoder(layers=[784, 32, 20]).fit(n_epochs=100, lr=1e-3, data=data)
 
-X_train_encoded = small_autoencoder.encode(torch.from_numpy(data).to(torch.float32)).detach().numpy()
+X_train_encoded = autoencoder.encode(torch.from_numpy(data).to(torch.float32)).detach().numpy()
 kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(X_train_encoded)
 
 my_ari = ari(y_train, kmeans.labels_)
@@ -71,7 +73,7 @@ print("ARI Training set Kmeans on encoded training data", my_ari)
 
 my_nmi = nmi(y_train, kmeans.labels_)
 print("NMI Training set Kmeans on encoded training data", my_nmi)
-X_test_encoded = small_autoencoder.encode(torch.from_numpy(X_test_znorm).to(torch.float32)).detach().numpy()
+X_test_encoded = autoencoder.encode(torch.from_numpy(X_test_znorm).to(torch.float32)).detach().numpy()
 labels_test = kmeans.predict(X_test_encoded)
 my_ari = ari(labels_test, y_test)
 print("ARI Test set Kmeans on encoded training data", my_ari)
@@ -80,14 +82,15 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on encoded training data", my_nmi)
 
 print("setup model (ACEDEC)")
-dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, print_step=50)
+dec = ACEDEC([10, 1], autoencoder=autoencoder, debug=True, print_step=50, pretrain_learning_rate=0.0001,
+             pretrain_epochs=100, clustering_learning_rate=0.001, clustering_epochs=400)
 
 print("starting hyperparameter search")
 # percentage 1.0 is unsupervised, 0.0 is supervised
 percentage = 0.0
 semi_supervised_labels = y_train.copy()
 semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
-
+"""
 nmi_scorer = make_scorer(nmi)
 grid_search_parameters = { "pretrain_learning_rate": [1e-3, 1e-4],
                  "clustering_learning_rate": [1e-3, 1e-5], "pretrain_epochs": [30, 100], "clustering_epochs": [100, 400]}
@@ -139,4 +142,4 @@ print("ARI Test set", my_ari)
 
 my_nmi = nmi(labels_test, y_test)
 print("NMI Test set", my_nmi)
-"""
+

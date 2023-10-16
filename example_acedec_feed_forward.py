@@ -80,14 +80,15 @@ my_nmi = nmi(labels_test, y_test)
 print("NMI Test set Kmeans on encoded training data", my_nmi)
 
 print("setup model (ACEDEC)")
-dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, print_step=50)
+dec = ACEDEC([2, 1], autoencoder=small_autoencoder, debug=True, print_step=50, pretrain_learning_rate=0.0001,
+             pretrain_epochs=100, clustering_learning_rate=0.001, clustering_epochs=400)
 
 print("starting hyperparameter search")
 # percentage 1.0 is unsupervised, 0.0 is supervised
 percentage = 0.0
 semi_supervised_labels = y_train.copy()
 semi_supervised_labels[np.random.choice(len(y_train), int(len(y_train)*percentage), replace=False)] = -1
-
+"""
 nmi_scorer = make_scorer(nmi)
 grid_search_parameters = { "pretrain_learning_rate": [1e-3, 1e-4],
                  "clustering_learning_rate": [1e-3, 1e-5], "pretrain_epochs": [30, 100], "clustering_epochs": [100, 400]}
@@ -139,4 +140,4 @@ print("ARI Test set", my_ari)
 
 my_nmi = nmi(labels_test, y_test)
 print("NMI Test set", my_nmi)
-"""
+

@@ -61,10 +61,10 @@ feed_forward_autoencoder = FeedforwardAutoencoder(layers=feed_forward_layers, re
 
 algorithmns = [
 
-    EvaluationAlgorithm("ACEDEC_convolutional_autoencoder_200", ACEDEC, {"n_clusters": [10,1], "autoencoder":
+    EvaluationAlgorithm("ACEDEC_feed_forward_autoencoder_200", ACEDEC, {"n_clusters": [10,1], "autoencoder":
         feed_forward_autoencoder,  "debug": False, "pretrain_epochs": 30, "clustering_epochs": 200,
                                                                    "print_step": 50, "recluster": True}),
-    EvaluationAlgorithm("ACEDEC_convolutional_autoencoder_100", ACEDEC, {"n_clusters": [10,1], "autoencoder":
+    EvaluationAlgorithm("ACEDEC_feed_forward_autoencoder_100", ACEDEC, {"n_clusters": [10,1], "autoencoder":
         feed_forward_autoencoder,  "debug": False, "pretrain_epochs": 30,  "clustering_epochs": 100,
                                                                  "print_step": 50, "recluster": True})
 
