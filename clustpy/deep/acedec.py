@@ -916,7 +916,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         """
         dataloader = get_dataloader(X, batch_size=self.batch_size, shuffle=False, drop_last=False)
 
-        self.autoencoder.to(self.device)
+        self.autoencoder = self.autoencoder.to(self.device)
         return enrc_predict_batchwise(V=torch.from_numpy(self.V).float().to(self.device),
                                       centers=[torch.from_numpy(c).float().to(self.device) for c in
                                                self.cluster_centers_],
