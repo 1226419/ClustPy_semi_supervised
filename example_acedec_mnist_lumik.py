@@ -86,7 +86,7 @@ orig_transforms = torchvision.transforms.Compose([normalize_fn])
 
 train_dl = get_dataloader(data, batch_size=256, shuffle=True,
                         ds_kwargs={"orig_transforms_list":[orig_transforms]},
-                        dl_kwargs={"num_workers":16})
+                        )
 # setup Augmentation dataloader
 transform_list = [
     torchvision.transforms.ToPILImage(),
@@ -102,7 +102,7 @@ transform_list = [
 aug_transforms = torchvision.transforms.Compose(transform_list)
 aug_train_dl = get_dataloader(data, batch_size=256, shuffle=True,
                         ds_kwargs={"aug_transforms_list":[aug_transforms], "orig_transforms_list":[orig_transforms]},
-                        dl_kwargs={"num_workers":16})
+                        )
 
 
 dl = get_dataloader(data, 256, shuffle=False,
