@@ -27,9 +27,9 @@ def get_dataloaders_from_config(config_dict: dict):
             data, labels = load_fmnist()
         else:
             raise ValueError("Dataset not found")
-        reshape_params = dataset[dataset_name]["reshape"]
-        print(reshape_params)
-        if reshape_params:
+
+        if "reshape" in list(dataset[dataset_name].keys()):
+            reshape_params = dataset[dataset_name]["reshape"]
             data = data.reshape(reshape_params)
         if perform_train_test_split:
             X_train, X_test, y_train, y_test = train_test_split(data, labels, test_size=0.2)
@@ -56,8 +56,8 @@ def get_autoencoders_from_config(config_dict: dict, train_data):
         optimizer_params = autoencoder[autoencoder_type]["optimizer_params"]
         layers = autoencoder[autoencoder_type]["layers"]
         n_epochs = autoencoder[autoencoder_type]["n_epochs"]
-        input_height = autoencoder[autoencoder_type]["input_height"]
         if autoencoder_type == "convolutional":
+            input_height = autoencoder[autoencoder_type]["input_height"]
             channels = autoencoder[autoencoder_type]["channels"]
             trained_autoencoder = ConvolutionalAutoencoder(input_height=input_height, fc_layers=layers,
                                                              reusable=True, channels=channels).fit(n_epochs=n_epochs,
@@ -68,8 +68,6 @@ def get_autoencoders_from_config(config_dict: dict, train_data):
                 n_epochs=n_epochs, optimizer_params=optimizer_params, data=train_data[0])
         list_of_trained_autoencoders.append(trained_autoencoder)
     return list_of_trained_autoencoders
-
-
 
 def get_algorithmns_from_config(config_dict: dict, list_of_autoencoders):
     print(config_dict)
