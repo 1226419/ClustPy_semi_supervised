@@ -64,7 +64,8 @@ def main():
                                         add_runtime=parameters["evaluation"]["add_runtinme"],
                                         add_n_clusters=parameters["evaluation"]["add_n_clusters"],
                                         save_path=f"multi_dataset_result.csv",
-                                        save_intermediate_results=parameters["evaluation"]["save_intermediatie_results"])
+                                        save_intermediate_results=parameters["evaluation"]["save_intermediatie_results"]
+                                        )
 
 
 if __name__ == "__main__":

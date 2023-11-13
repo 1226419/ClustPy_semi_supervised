@@ -252,7 +252,7 @@ class ResNetEncoder(nn.Module):
 class ResNetDecoder(nn.Module):
     """Resnet in reverse order."""
 
-    def __init__(self, block, layers, latent_dim, input_height, first_conv=False, maxpool1=False, out_channels=3):
+    def __init__(self, block, layers, latent_dim, input_height, first_conv=False, maxpool1=False, out_channels=1):
         super().__init__()
 
         self.expansion = block.expansion
@@ -351,9 +351,10 @@ def _resnet_encoder(
         layers: List[int],
         pretrained_weights: Optional[WeightsEnum],
         first_conv: bool,
-        maxpool1: bool
+        maxpool1: bool,
+        channels: int
 ) -> ResNetEncoder:
-    model = ResNetEncoder(block, layers, first_conv, maxpool1)
+    model = ResNetEncoder(block, layers, first_conv, maxpool1, channels)
     if pretrained_weights is not None:
         model_dict = model.state_dict()
         pretrained_dict = pretrained_weights.get_state_dict(progress=False)
@@ -372,31 +373,35 @@ def _resnet_decoder(
         latent_dim: int,
         input_height: int,
         first_conv: bool,
-        maxpool1: bool
+        maxpool1: bool,
+        channels: int
 ) -> ResNetDecoder:
-    model = ResNetDecoder(block, layers, latent_dim, input_height, first_conv, maxpool1)
+    model = ResNetDecoder(block, layers, latent_dim, input_height, first_conv, maxpool1, channels)
     if pretrained_weights is not None:
         raise NotImplementedError("Not yet implemented.")
     return model
 
 
-def resnet18_encoder(first_conv, maxpool1, pretrained_weights=None):
+def resnet18_encoder(first_conv, maxpool1, pretrained_weights=None, channels=3):
     return _resnet_encoder(arch="resnet18", block=EncoderBlock, layers=[2, 2, 2, 2],
-                           pretrained_weights=pretrained_weights, first_conv=first_conv, maxpool1=maxpool1)
+                           pretrained_weights=pretrained_weights, first_conv=first_conv, maxpool1=maxpool1,
+                           channels=channels)
 
 
-def resnet50_encoder(first_conv, maxpool1, pretrained_weights=None):
+def resnet50_encoder(first_conv, maxpool1, pretrained_weights=None, channels=3):
     return _resnet_encoder(arch="resnet50", block=EncoderBottleneck, layers=[3, 4, 6, 3],
-                           pretrained_weights=pretrained_weights, first_conv=first_conv, maxpool1=maxpool1)
+                           pretrained_weights=pretrained_weights, first_conv=first_conv, maxpool1=maxpool1,
+                           channels=channels)
 
 
-def resnet18_decoder(latent_dim, input_height, first_conv, maxpool1, pretrained_weights=None):
+def resnet18_decoder(latent_dim, input_height, first_conv, maxpool1, pretrained_weights=None, channels=3):
     return _resnet_decoder(arch="resnet18", block=DecoderBlock, layers=[2, 2, 2, 2], latent_dim=latent_dim,
                            input_height=input_height, first_conv=first_conv, maxpool1=maxpool1,
-                           pretrained_weights=pretrained_weights)
+                           pretrained_weights=pretrained_weights,
+                           channels=channels)
 
 
-def resnet50_decoder(latent_dim, input_height, first_conv, maxpool1, pretrained_weights=None):
+def resnet50_decoder(latent_dim, input_height, first_conv, maxpool1, pretrained_weights=None, channels=3):
     return _resnet_decoder(arch="resnet50", block=DecoderBottleneck, layers=[3, 4, 6, 3], latent_dim=latent_dim,
                            input_height=input_height, first_conv=first_conv, maxpool1=maxpool1,
-                           pretrained_weights=pretrained_weights)
+                           pretrained_weights=pretrained_weights, channels=channels)

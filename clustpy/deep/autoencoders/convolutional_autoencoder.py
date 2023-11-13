@@ -81,7 +81,7 @@ class ConvolutionalAutoencoder(_AbstractAutoencoder):
                  conv_decoder_name: str = None, activation_fn: torch.nn.Module = torch.nn.ReLU,
                  fc_decoder_layers: list = None, decoder_output_fn: torch.nn.Module = None,
                  pretrained_encoder_weights: Weights = None, pretrained_decoder_weights: Weights = None,
-                 reusable: bool = True, **fc_kwargs):
+                 reusable: bool = True, channels: int = 3, **fc_kwargs):
         super().__init__(reusable)
         self.input_height = input_height
 
@@ -100,7 +100,8 @@ class ConvolutionalAutoencoder(_AbstractAutoencoder):
                 raise ValueError(
                     f"First input in fc_layers needs to be {_CONV_MODULES_INPUT_DIM[conv_encoder_name]} for {conv_encoder_name} architecture, but is fc_layers[0] = {fc_layers[0]}")
             self.conv_encoder = _VALID_CONV_MODULES[conv_encoder_name]["enc"](first_conv=True, maxpool1=True,
-                                                                              pretrained_weights=pretrained_encoder_weights)
+                                                                              pretrained_weights=pretrained_encoder_weights,
+                                                                              channels=channels)
         else:
             raise ValueError(
                 f"value for conv_encoder_name={conv_encoder_name} is not valid. Has to be one of {list(_VALID_CONV_MODULES.keys())}")
@@ -111,7 +112,8 @@ class ConvolutionalAutoencoder(_AbstractAutoencoder):
             self.conv_decoder = _VALID_CONV_MODULES[conv_decoder_name]["dec"](latent_dim=fc_decoder_layers[-1],
                                                                               input_height=self.input_height,
                                                                               first_conv=True, maxpool1=True,
-                                                                              pretrained_weights=pretrained_decoder_weights)
+                                                                              pretrained_weights=pretrained_decoder_weights,
+                                                                              channels=channels)
         else:
             raise ValueError(
                 f"value for conv_decoder_name={conv_decoder_name} is not valid. Has to be one of {list(_VALID_CONV_MODULES.keys())}")

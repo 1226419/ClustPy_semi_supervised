@@ -11,9 +11,6 @@ dataset:
               transforms:
                   - normalize:
               reshape: [-1, 1, 28, 28]
-        - banknote:
-              transforms:
-                  - normalize:
 autoencoder:
     - convolutional:
         optimizer_params: 
