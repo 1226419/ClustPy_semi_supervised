@@ -1,0 +1,47 @@
+general:
+    save_path: "results"
+dataset:
+    preprocessing:
+         - normalize
+    percentages: [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
+    transform:
+    train_test_split: True
+    list_of_datasets:
+        - mnist:
+              transforms:
+                  - normalize:
+              reshape: [-1, 1, 28, 28]
+autoencoder:
+    - convolutional:
+        optimizer_params: 
+            lr: 0.001
+        input_height: 28
+        layers: [512, 10]
+        n_epochs: 50
+        channels: 1
+    - feed_forward:
+        layers: [784, 512, 256, 10]
+        optimizer_params: 
+            lr: 0.001
+        n_epochs: 3000
+algorithm:
+    - acedec:
+        params:
+            n_clusters: [10,1]
+            debug: False
+            pretrain_learning_rate: 0.0001
+            pretrain_epochs: 30
+            clustering_learning_rate: 0.001
+            clustering_epochs: 200
+            print_step: 50
+            recluster: True
+metric:
+    - NMI
+    - ARI
+evaluation:
+    n_repetitions: 5
+    aggregation_functions:
+        - np.mean
+    add_runtinme: True
+    add_n_clusters: False
+    save_intermediatie_results: True

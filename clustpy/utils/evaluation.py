@@ -357,6 +357,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
         if automatically_set_n_clusters:
             eval_algo.params["n_clusters"] = None
     for agg in aggregation_functions:
+        agg = eval(agg)
         df.loc[agg.__name__] = agg(df.values, axis=0)
     if save_path is not None:
         # Check if directory exists
@@ -478,7 +479,9 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
                                   labels_train=eval_data.labels_train)
             df_list.append(df)
         except Exception as e:
+            print(traceback.print_exc())
             print("Dataset {0} raised an exception and will be skipped".format(eval_data.name))
+            print(traceback.print_exc())
             print(e)
     all_dfs = pd.concat(df_list, keys=data_names)
     if save_path is not None:

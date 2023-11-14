@@ -59,12 +59,14 @@ def main():
         list_of_algorithmns = get_algorithms_from_config(parameters["algorithm"], list_of_autoencoders)
         list_of_metrics = get_metrics_from_config(parameters["metric"])
 
+
+
         evaluate_multiple_datasets(list_of_dataloaders, list_of_algorithmns, list_of_metrics,
                                     n_repetitions=parameters["evaluation"]["n_repetitions"],
                                     aggregation_functions=parameters["evaluation"]["aggregation_functions"],
                                     add_runtime=parameters["evaluation"]["add_runtinme"],
                                     add_n_clusters=parameters["evaluation"]["add_n_clusters"],
-                                    save_path=f"multi_dataset_result.csv",
+                                    save_path=os.path.join(results_path, "multi_dataset_result.csv"),
                                     save_intermediate_results=parameters["evaluation"]["save_intermediatie_results"]
                                     )
 
