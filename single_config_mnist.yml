@@ -3,7 +3,7 @@ general:
 dataset:
     preprocessing:
          - normalize
-    percentages: [0.0, 0.1, 0.3, 0.5, 0.7, 0.9, 1.0]
+    percentages: [0.0, 0.3, 0.5, 0.7,  1.0]
     transform:
     train_test_split: True
     list_of_datasets:
