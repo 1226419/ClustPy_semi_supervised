@@ -209,6 +209,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
     header = pd.MultiIndex.from_product([algo_names, metric_names], names=["algorithm", "metric"])
     value_placeholder = np.zeros((n_repetitions, len(algo_names) * len(metric_names)))
     df = pd.DataFrame(value_placeholder, columns=header, index=range(n_repetitions))
+    print("DF", df)
     for eval_algo in evaluation_algorithms:
         automatically_set_n_clusters = False
         try:
@@ -350,6 +351,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                     break
         except Exception as e:
             print("Algorithm {0} raised an exception and will be skipped".format(eval_algo.name))
+            print(traceback.print_exc())
             print(e)
         # Prepare eval_algo params for next dataset
         if automatically_set_n_clusters:

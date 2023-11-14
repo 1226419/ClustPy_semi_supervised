@@ -6,7 +6,7 @@ from clustpy.deep.autoencoders.convolutional_autoencoder import ConvolutionalAut
 from clustpy.deep.autoencoders.feedforward_autoencoder import FeedforwardAutoencoder
 from sklearn.metrics import adjusted_rand_score as ari
 from sklearn.metrics import normalized_mutual_info_score as nmi
-
+from clustpy.deep.acedec import ACEDEC
 
 def get_dataloaders_from_config(config_dict: dict):
     percentages_of_unlabeled_data = config_dict["percentages"]
@@ -69,8 +69,24 @@ def get_autoencoders_from_config(config_dict: dict, train_data):
         list_of_trained_autoencoders.append(trained_autoencoder)
     return list_of_trained_autoencoders
 
-def get_algorithmns_from_config(config_dict: dict, list_of_autoencoders):
+
+def get_algorithms_from_config(config_dict: dict, list_of_autoencoders):
     print(config_dict)
+    list_of_algorithms = []
+    i = 0
+    for autoencoder in list_of_autoencoders:
+        for algorithms in config_dict:
+            print(algorithms)
+            algorithms_type = list(algorithms.keys())[0]
+            if algorithms_type == "acedec":
+                i += 1
+                parameters = algorithms[algorithms_type]["params"]
+                parameters["autoencoder"] = autoencoder
+                print(parameters)
+                list_of_algorithms.append(EvaluationAlgorithm("ACEDEC_"+str(i), ACEDEC, parameters))
+    return list_of_algorithms
+
+
 def get_metrics_from_config(config_dict: dict):
     print(config_dict)
     list_of_metrics = []

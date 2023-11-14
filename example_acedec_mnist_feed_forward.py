@@ -2,7 +2,7 @@ from clustpy.deep.acedec import ACEDEC
 from clustpy.data import load_mnist, load_iris, load_banknotes
 from sklearn.metrics import adjusted_rand_score as ari
 from sklearn.metrics import normalized_mutual_info_score as nmi
-from sklearn.metrics import  make_scorer
+from sklearn.metrics import make_scorer
 from sklearn.cluster import KMeans
 from sklearn.model_selection import train_test_split, GridSearchCV
 import torch

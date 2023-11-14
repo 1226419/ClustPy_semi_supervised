@@ -3,7 +3,7 @@ import pathlib
 import os
 import yaml
 
-from clustpy.utils.read_config import get_dataloaders_from_config, get_algorithmns_from_config, get_metrics_from_config, get_autoencoders_from_config
+from clustpy.utils.read_config import get_dataloaders_from_config, get_algorithms_from_config, get_metrics_from_config, get_autoencoders_from_config
 from clustpy.utils import evaluate_multiple_datasets
 
 
@@ -56,16 +56,17 @@ def main():
 
     for unique_dataset in list_of_unique_datasets:
         list_of_autoencoders = get_autoencoders_from_config(parameters["autoencoder"], unique_dataset)
-        list_of_algorithmns = get_algorithmns_from_config(parameters["algorithm"], list_of_autoencoders)
+        list_of_algorithmns = get_algorithms_from_config(parameters["algorithm"], list_of_autoencoders)
         list_of_metrics = get_metrics_from_config(parameters["metric"])
-        df = evaluate_multiple_datasets(list_of_dataloaders, list_of_algorithmns, list_of_metrics,
-                                        n_repetitions=parameters["evaluation"]["n_repetitions"],
-                                        aggregation_functions=parameters["evaluation"]["aggregation_functions"],
-                                        add_runtime=parameters["evaluation"]["add_runtinme"],
-                                        add_n_clusters=parameters["evaluation"]["add_n_clusters"],
-                                        save_path=f"multi_dataset_result.csv",
-                                        save_intermediate_results=parameters["evaluation"]["save_intermediatie_results"]
-                                        )
+
+        evaluate_multiple_datasets(list_of_dataloaders, list_of_algorithmns, list_of_metrics,
+                                    n_repetitions=parameters["evaluation"]["n_repetitions"],
+                                    aggregation_functions=parameters["evaluation"]["aggregation_functions"],
+                                    add_runtime=parameters["evaluation"]["add_runtinme"],
+                                    add_n_clusters=parameters["evaluation"]["add_n_clusters"],
+                                    save_path=f"multi_dataset_result.csv",
+                                    save_intermediate_results=parameters["evaluation"]["save_intermediatie_results"]
+                                    )
 
 
 if __name__ == "__main__":

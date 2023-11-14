@@ -622,7 +622,6 @@ def acedec_init(y, embedded_data, n_clusters, init="auto", rounds=10, input_cent
                 labels = np.unique(y)
                 if -1 in labels:
                     labels = labels[1:]
-
                 assert len(labels) == subspace_size
                 for label_index in labels:
                     current_label_mask = np.where(y == label_index)[0]
