@@ -490,6 +490,7 @@ def acedec_predict(z, V, centers, subspace_betas, use_P=False):
     """
     return enrc_predict(z, V, centers[:-1], subspace_betas, use_P=use_P)
 
+
 def acedec_predict_batchwise(V, centers, subspace_betas, model, dataloader, device=torch.device("cpu"), use_P=False):
     """Predicts the labels for each clustering of a dataloader in a mini-batch manner.
         Ignores the noise space cluster
@@ -509,6 +510,7 @@ def acedec_predict_batchwise(V, centers, subspace_betas, model, dataloader, devi
     predicted_labels : n x c matrix, where n is the number of data points in z and c is the number of clusterings.
     """
     return enrc_predict_batchwise(V, centers[:-1], subspace_betas, model, dataloader, device=device, use_P=use_P)
+
 
 def beta_weights_init(P, n_dims, high_value=0.9):
     """Initializes parameters of the such that betas will be set randomly. See 2.2. Initialization and Augmentation

@@ -59,8 +59,6 @@ def main():
         list_of_algorithmns = get_algorithms_from_config(parameters["algorithm"], list_of_autoencoders)
         list_of_metrics = get_metrics_from_config(parameters["metric"])
 
-
-
         evaluate_multiple_datasets(list_of_dataloaders, list_of_algorithmns, list_of_metrics,
                                     n_repetitions=parameters["evaluation"]["n_repetitions"],
                                     aggregation_functions=parameters["evaluation"]["aggregation_functions"],

@@ -35,6 +35,11 @@ algorithm:
             clustering_epochs: 200
             print_step: 50
             recluster: True
+            init_method: "labeled"
+            cluster_assignment_method: "assign_to_correct_center"
+            reclustering_method: "same_as_init"
+            update_cluster_method: "use_all_assigned_points"
+            loss_calculation_method: "distance_to_cluster_center"
     - acedec:
         params:
             n_clusters: [10,1]
