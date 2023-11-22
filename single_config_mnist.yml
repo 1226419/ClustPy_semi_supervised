@@ -27,8 +27,14 @@ algorithm:
             clustering_epochs: 1
             print_step: 50
             recluster: True
-
-
+            init: "acedec"
+            cluster_assignment: "acedec"
+            reclustering: "acedec"
+            update_cluster: "acedec"
+            loss_calculation: "acedec"
+            prediction: "acedec"
+            prediction_kwargs:
+                alpha: 0.5
 metric:
     - NMI
     - ARI

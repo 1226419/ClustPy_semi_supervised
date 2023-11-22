@@ -1354,6 +1354,7 @@ def acedec_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batc
     V = V.detach().cpu().numpy()
     return centers, P, V, beta_weights
 
+
 def enrc_init(data: np.ndarray, n_clusters: list, init: str = "auto", rounds: int = 10, input_centers: list = None,
               P: list = None, V: np.ndarray = None, random_state: np.random.RandomState = None, max_iter: int = 100,
               optimizer_params: dict = None, optimizer_class: torch.optim.Optimizer = None, batch_size: int = 128,
