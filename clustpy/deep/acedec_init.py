@@ -73,11 +73,16 @@ def acedec_init(y, embedded_data, n_clusters, init="auto", rounds=10, input_cent
         raise ValueError(f"init={init} is not implemented.")
 
     if input_centers is not None and debug:
-        plot_2d_data(embedded_data, y, input_centers[0], title="before enrc_init") # only plot first label dim (There
+        print(len(input_centers))
+        for input_center in input_centers:
+            print(input_center.shape)
+        print(embedded_data.shape)
+        print(y.shape)
+        plot_2d_data(embedded_data,  centers=input_centers[0], true_labels=y, title="before enrc_init") # only plot first label dim (There
         # is only one for now.
 
     if debug:
-        plot_2d_data(embedded_data@V, y, input_centers[0], title="after enrc_init")
+        plot_2d_data(embedded_data@V, centers= input_centers[0], true_labels=y, title="after enrc_init")
     return input_centers, P, V, beta_weights
 
 

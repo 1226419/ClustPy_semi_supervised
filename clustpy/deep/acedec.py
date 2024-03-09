@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from typing import Union
 from clustpy.deep._utils import int_to_one_hot, squared_euclidean_distance, encode_batchwise, detect_device
 from clustpy.deep._data_utils import get_dataloader
 from clustpy.deep._train_utils import get_trained_autoencoder
@@ -563,11 +564,11 @@ def beta_weights_init(P, n_dims, high_value=0.9):
 
 def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning_rate,
           learning_rate, pretrain_epochs, max_epochs, optimizer_class, loss_fn,
-          degree_of_space_distortion, degree_of_space_preservation, autoencoder,
+          degree_of_space_distortion, degree_of_space_preservation, autoencoder, custom_trainloader, custom_testloader,
           embedding_size, init, random_state, device, scheduler, scheduler_params, tolerance_threshold, init_kwargs,
-          init_subsample_size, debug, print_step, recluster, cluster_assignment, cluster_assignment_kwargs,
+          init_subsample_size, debug, print_step, final_reclustering, cluster_assignment, cluster_assignment_kwargs,
           reclustering, reclustering_kwargs, update_cluster_centers, update_cluster_centers_kwargs,
-          loss_calculation, loss_calculation_kwargs):
+          loss_calculation, loss_calculation_kwargs, ):
     print("setup acedec")
     # Set device to train on
     if device is None:
@@ -575,15 +576,24 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
 
     # Setup dataloaders
     print("setup dataloaders")
-    trainloader = get_dataloader(X, batch_size=batch_size, shuffle=True, drop_last=True)
-    testloader = get_dataloader(X, batch_size=batch_size, shuffle=False, drop_last=False)
+    if custom_trainloader is None:
+        trainloader = custom_trainloader
+    else:
+        trainloader = get_dataloader(X, batch_size=batch_size, shuffle=True, drop_last=True)
+
+    if custom_testloader is None:
+        testloader = custom_testloader
+    else:
+        testloader = get_dataloader(X, batch_size=batch_size, shuffle=False, drop_last=False)
 
     # Use subsample of the data if specified
     print("subsample")
+    print("size", init_subsample_size)
     if init_subsample_size is not None and init_subsample_size > 0:
         rng = np.random.default_rng(random_state)
         rand_idx = rng.choice(X.shape[0], init_subsample_size, replace=False)
         subsampleloader = get_dataloader(X[rand_idx], batch_size=batch_size, shuffle=False, drop_last=False)
+        y = y[rand_idx]
     else:
         subsampleloader = testloader
 
@@ -651,7 +661,7 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
 
     # Recluster
     print("Recluster")
-    if recluster:
+    if final_reclustering:
         acedec_module.recluster(y=y, dataloader=subsampleloader, model=autoencoder, device=device)
     # TODO: skip recluster call and do it outside in the example file
     # Predict labels and transfer other parameters to numpy
@@ -709,29 +719,37 @@ class ACEDEC(BaseEstimator, ClusterMixin):
     Thirtieth International Joint Conference on Artificial Intelligence (IJCAI-21), 2826--2832, 19.-27.08.2021.
     """
 
-    def __init__(self, n_clusters, V=None, P=None, input_centers=None, batch_size=128, pretrain_learning_rate=1e-3,
-                 clustering_learning_rate=1e-4, pretrain_epochs=100, clustering_epochs=150, tolerance_threshold=None,
+    def __init__(self, n_clusters: Union[int, list], V=None, P=None, input_centers=None, batch_size=128,
+                 pretrain_optimizer_params: dict = {"lr":1e-3, "epochs":100},
+                 clustering_optimizer_params: dict = {"lr":1e-4, "epochs": 150},
+                 tolerance_threshold=None,
                  optimizer_class=torch.optim.Adam, loss_fn=torch.nn.MSELoss(),
                  degree_of_space_distortion=1.0, degree_of_space_preservation=1.0, autoencoder=None,
+                 custom_dataloaders=[None, None],
                  embedding_size=20, init="acedec", random_state=None, device=None, scheduler=None,
                  scheduler_params=None, init_kwargs=None, init_subsample_size=None, debug=False, print_step=10,
-                 recluster: bool = True, cluster_assignment="acedec", cluster_assignment_kwargs=None,
+                 cluster_assignment="acedec", cluster_assignment_kwargs=None,
                  reclustering="acedec", reclustering_kwargs=None, update_cluster_centers="acedec",
-                 update_cluster_centers_kwargs=None, loss_calculation="acedec", loss_calculation_kwargs=None):
+                 update_cluster_centers_kwargs=None, loss_calculation="acedec", loss_calculation_kwargs=None,
+                 final_reclustering: bool = False):
+        if type(n_clusters) == int:
+            n_clusters = [n_clusters, 1]
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.device = device
         self.batch_size = batch_size
-        self.pretrain_learning_rate = pretrain_learning_rate
-        self.clustering_learning_rate = clustering_learning_rate
-        self.pretrain_epochs = pretrain_epochs
-        self.clustering_epochs = clustering_epochs
+        self.pretrain_learning_rate = pretrain_optimizer_params["lr"]
+        self.clustering_learning_rate = clustering_optimizer_params["lr"]
+        self.pretrain_epochs = pretrain_optimizer_params["epochs"]
+        self.clustering_epochs = clustering_optimizer_params["epochs"]
         self.tolerance_threshold = tolerance_threshold
         self.optimizer_class = optimizer_class
         self.loss_fn = loss_fn
         self.degree_of_space_distortion = degree_of_space_distortion
         self.degree_of_space_preservation = degree_of_space_preservation
         self.autoencoder = autoencoder
+        self.custom_trainloader = custom_dataloaders[0]
+        self.custom_testloader = custom_dataloaders[1]
         self.embedding_size = embedding_size
         self.scheduler = scheduler
         self.scheduler_params = scheduler_params
@@ -739,7 +757,6 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         self.init_subsample_size = init_subsample_size
         self.debug = debug
         self.print_step = print_step
-        self.recluster = recluster
         self.cluster_assignment = cluster_assignment
         self.cluster_assignment_kwargs = cluster_assignment_kwargs
         self.reclustering = reclustering
@@ -748,6 +765,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         self.update_cluster_centers_kwargs = update_cluster_centers_kwargs
         self.loss_calculation = loss_calculation
         self.loss_calculation_kwargs = loss_calculation_kwargs
+        self.final_reclustering = final_reclustering
 
         print(n_clusters)
         if len(self.n_clusters) > 2:
@@ -801,6 +819,8 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          degree_of_space_distortion=self.degree_of_space_distortion,
                                                                                          degree_of_space_preservation=self.degree_of_space_preservation,
                                                                                          autoencoder=self.autoencoder,
+                                                                                         custom_testloader= self.custom_testloader,
+                                                                                         custom_trainloader= self.custom_trainloader,
                                                                                          embedding_size=self.embedding_size,
                                                                                          init=self.init,
                                                                                          random_state=self.random_state,
@@ -811,7 +831,6 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          init_subsample_size=self.init_subsample_size,
                                                                                          debug=self.debug,
                                                                                          print_step=self.print_step,
-                                                                                         recluster=self.recluster,
                                                                                          cluster_assignment=self.cluster_assignment,
                                                                                          cluster_assignment_kwargs=self.cluster_assignment_kwargs,
                                                                                          reclustering=self.reclustering,
@@ -819,7 +838,8 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          update_cluster_centers=self.update_cluster_centers,
                                                                                          update_cluster_centers_kwargs=self.update_cluster_centers_kwargs,
                                                                                          loss_calculation=self.loss_calculation,
-                                                                                         loss_calculation_kwargs=self.loss_calculation_kwargs
+                                                                                         loss_calculation_kwargs=self.loss_calculation_kwargs,
+                                                                                         final_reclustering=self.final_reclustering,
         )
         # Update class variables
         self.labels_ = cluster_labels

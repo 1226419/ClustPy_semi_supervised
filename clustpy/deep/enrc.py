@@ -1848,7 +1848,8 @@ def _enrc(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_centers
         scheduler = scheduler(optimizer, **scheduler_params)
 
     # Training loop
-    if debug: print("Start training")
+    if debug:
+        print("Start training")
     enrc_module.fit(trainloader=trainloader,
                     evalloader=testloader,
                     max_epochs=clustering_epochs,
@@ -2039,7 +2040,7 @@ class ENRC(BaseEstimator, ClusterMixin):
             returns the ENRC object
         """
         augmentation_invariance_check(self.augmentation_invariance, self.custom_dataloaders)
-        print("hier läuft")
+
         cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering = _enrc(X=X,
                                                                                                                             n_clusters=self.n_clusters,
                                                                                                                             V=self.V,
