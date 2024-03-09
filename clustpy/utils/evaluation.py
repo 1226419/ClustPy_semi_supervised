@@ -8,9 +8,10 @@ from collections.abc import Callable
 import traceback
 import os
 import inspect
+from sklearn.datasets._base import Bunch
 
 
-def load_saved_autoencoder(path: str, autoencoder_class: torch.nn.Module, params: dict = {}) -> torch.nn.Module:
+def load_saved_autoencoder(path: str, autoencoder_class: torch.nn.Module, params: dict = None) -> torch.nn.Module:
     """
     Load the states of an already trained autoencoder.
     It will be assumed that the autoencoder was already fitted, so the 'fitted' parameter will be set to True.
@@ -28,9 +29,10 @@ def load_saved_autoencoder(path: str, autoencoder_class: torch.nn.Module, params
     -------
     The autoencoder with the loaded states
     """
+    params = {} if params is None else params
     autoencoder = autoencoder_class(**params)
-    autoencoder.load_state_dict(torch.load(path))
-    autoencoder.fitted = True
+    autoencoder.load_parameters(path)
+    autoencoder.fitted = True # is this necessary ?
     return autoencoder
 
 
@@ -105,9 +107,9 @@ def _get_n_clusters_from_algo(algo_obj: ClusterMixin) -> int:
 def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metrics: list = None,
                      labels_true: np.ndarray = None, n_repetitions: int = 10,
                      X_test: np.ndarray = None, labels_true_test: np.ndarray = None,
-                     iteration_specific_autoencoders: list = None, aggregation_functions: list = [np.mean, np.std],
+                     iteration_specific_autoencoders: list = None, aggregation_functions: tuple = (np.mean, np.std),
                      add_runtime: bool = True, add_n_clusters: bool = False, save_path: str = None,
-                     save_labels_path: str = None, ignore_algorithms: list = [],
+                     save_labels_path: str = None, ignore_algorithms: tuple = (),
                      random_state: np.random.RandomState = None, labels_train: np.ndarray = None,) -> pd.DataFrame:
     """
     Evaluate the clustering result of different clustering algorithms (as specified by evaluation_algorithms) on a given data set using different metrics (as specified by evaluation_metrics).
@@ -136,7 +138,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
         Each entry in the list must be of type EvaluationAutoencoder.
         If a clustering algorithm does not have a 'autoencoder' parameter, this parameter will be ignored.
         Can be None if no iteration-specific autoencoders are used (default: None)
-    aggregation_functions : list
+    aggregation_functions : tuple
         List of aggregation functions that should be applied to the n_repetitions different results of a single clustering algorithm (default: [np.mean, np.std])
     add_runtime : bool
         Add runtime of each execution to the final table (default: True)
@@ -146,7 +148,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
         The path where the final DataFrame should be saved as csv. If None, the DataFrame will not be saved (default: None)
     save_labels_path : str
         The path where the clustering labels should be saved as csv. If None, the labels will not be saved (default: None)
-    ignore_algorithms : list
+    ignore_algorithms : tuple
         List of algorithm names (as specified in the EvaluationAlgorithm object) that should be ignored for this specific data set (default: [])
     random_state : np.random.RandomState
         use a fixed random state to get a repeatable solution. Can also be of type int (default: None)
@@ -185,7 +187,8 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
     """
     assert evaluation_metrics is not None or add_runtime or add_n_clusters, \
         "Either evaluation metrics must be defined or add_runtime/add_n_clusters must be True"
-    assert type(aggregation_functions) is list, "aggregation_functions must be list"
+    assert type(aggregation_functions) is list or type(
+        aggregation_functions) is tuple, "aggregation_functions must be list or tuple"
     # Check if length of iteration_specific_autoencoders is correct
     assert iteration_specific_autoencoders is None or len(
         iteration_specific_autoencoders) == n_repetitions, "If iteration_specific_autoencoders is specified, the length of the list must be equal to n_repetitions. Should be {0}, but is {1}".format(
@@ -194,6 +197,9 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
         evaluation_algorithms = [evaluation_algorithms]
     if type(evaluation_metrics) is not list and evaluation_metrics is not None:
         evaluation_metrics = [evaluation_metrics]
+    if save_labels_path is not None and not "." in save_labels_path:
+        save_labels_path = save_labels_path + ".csv"
+    assert save_labels_path is None or len(save_labels_path.split(".")) == 2, "save_labels_path must only contain a single dot. E.g., NAME.csv"
     # Use same seed for each algorithm
     random_state = check_random_state(random_state)
     seeds = random_state.choice(10000, n_repetitions, replace=False)
@@ -209,7 +215,6 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
     header = pd.MultiIndex.from_product([algo_names, metric_names], names=["algorithm", "metric"])
     value_placeholder = np.zeros((n_repetitions, len(algo_names) * len(metric_names)))
     df = pd.DataFrame(value_placeholder, columns=header, index=range(n_repetitions))
-    print("DF", df)
     for eval_algo in evaluation_algorithms:
         automatically_set_n_clusters = False
         try:
@@ -357,7 +362,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
         if automatically_set_n_clusters:
             eval_algo.params["n_clusters"] = None
     for agg in aggregation_functions:
-        agg = eval(agg)
+        # agg = eval # why is this necessary
         df.loc[agg.__name__] = agg(df.values, axis=0)
     if save_path is not None:
         # Check if directory exists
@@ -369,7 +374,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
 
 
 def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms: list, evaluation_metrics: list = None,
-                               n_repetitions: int = 10, aggregation_functions: list = [np.mean, np.std],
+                               n_repetitions: int = 10, aggregation_functions: tuple = (np.mean, np.std),
                                add_runtime: bool = True, add_n_clusters: bool = False, save_path: str = None,
                                save_intermediate_results: bool = False, save_labels_path: str = None,
                                random_state: np.random.RandomState = None) -> pd.DataFrame:
@@ -388,7 +393,7 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
         Contains objects of type EvaluationMetric which are wrappers for the metrics (default: None)
     n_repetitions : int
         Number of times that the clustering procedure should be executed on the same data set (default: 10)
-    aggregation_functions : list
+    aggregation_functions : tuple
         List of aggregation functions that should be applied to the n_repetitions different results of a single clustering algorithm (default: [np.mean, np.std])
     add_runtime : bool
         Add runtime of each execution to the final table (default: True)
@@ -446,6 +451,9 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
                                                                    "save_intermediate_results is True"
     if type(evaluation_datasets) is not list:
         evaluation_datasets = [evaluation_datasets]
+    if save_labels_path is not None and not "." in save_labels_path:
+        save_labels_path = save_labels_path + ".csv"
+    assert save_labels_path is None or len(save_labels_path.split(".")) == 2, "save_labels_path must only contain a single dot. E.g., NAME.csv"
     data_names = [d.name for d in evaluation_datasets]
     df_list = []
     for eval_data in evaluation_datasets:
@@ -538,10 +546,20 @@ def _get_data_and_labels_from_evaluation_dataset(data_input: np.ndarray, data_lo
         data_loader_params = inspect.getfullargspec(data_input).args
         # Check if dataset should be split in train and test set
         if type(train_test_split) is bool and train_test_split and "subset" in data_loader_params:
-            X, labels_true = data_input(subset="train", **data_loader_params_input)
-            X_test, labels_true_test = data_input(subset="test", **data_loader_params_input)
+            dataset = data_input(subset="train", **data_loader_params_input)
+            testset = data_input(subset="test", **data_loader_params_input)
+            if type(testset) is Bunch:
+                X_test = testset.data
+                labels_true_test = testset.target
+            else:
+                X_test, labels_true_test = testset
         else:
-            X, labels_true = data_input(**data_loader_params_input)
+            dataset = data_input(**data_loader_params_input)
+        if type(dataset) is Bunch:
+            X = dataset.data
+            labels_true = dataset.target
+        else:
+            X, labels_true = dataset
     # Check if ground truth columns are defined
     if type(labels_input) is int or type(labels_input) is list:
         labels_true = X[:, labels_input]
@@ -568,6 +586,7 @@ def evaluation_df_to_latex_table(df: pd.DataFrame, output_path: str, use_std: bo
                                  decimal_places: int = 1) -> None:
     """
     Convert the resulting dataframe of an evaluation into a latex table.
+    Note that the latex package booktabs is required, so usepackage{booktabs} must be included in the latex file.
     This method will only consider the mean values. Therefore, note that "mean" must be included in the aggregations!
     If "std" is also contained in the dataframe (and use_std is True) this value will also be added by using plusminus.
 
@@ -629,7 +648,12 @@ def evaluation_df_to_latex_table(df: pd.DataFrame, output_path: str, use_std: bo
         f.write("\\textbf{Metric} & " + " & ".join(algorithms) + "\\\\\n\\midrule\n")
         # Write values into table
         for j, d in enumerate(datasets):
+            # Check if underscore in dataset name
+            if d is not None:
+                d = d.replace("_", "\\_")
             for i, m in enumerate(metrics):
+                # Check if underscore in metric name
+                m = m.replace("_", "\\_")
                 # Check if a higher value is better for this metric
                 metric_is_higher_better = (m != "runtime") if higher_is_better is None else higher_is_better[i]
                 # Write name of dataset and metric
@@ -653,6 +677,8 @@ def evaluation_df_to_latex_table(df: pd.DataFrame, output_path: str, use_std: bo
                     all_values.append(mean_value)
                 all_values_sorted = np.unique(all_values)  # automatically sorted
                 for k, a in enumerate(algorithms):
+                    # Check if underscore in algorithm name
+                    a = a.replace("_", "\\_")
                     mean_value = all_values[k]
                     # If standard deviation is contained in the dataframe, information will be added
                     if use_std and std_contained:
@@ -683,7 +709,7 @@ def evaluation_df_to_latex_table(df: pd.DataFrame, output_path: str, use_std: bo
                             color_saturation = 0
                         assert type(color_saturation) is int, "color_saturation must be an int but is {0}".format(
                             type(color_saturation))
-                        value_write = "\cellcolor{" + color_by_value + "!" + str(color_saturation) + "}" + value_write
+                        value_write = "\\cellcolor{" + color_by_value + "!" + str(color_saturation) + "}" + value_write
                     to_write += " & " + value_write
                 to_write += "\\\\\n"
                 f.write(to_write)
@@ -727,7 +753,7 @@ class EvaluationDataset():
         Each entry in the list must be of type EvaluationAutoencoder.
         If a clustering algorithm does not have a 'autoencoder' parameter, this parameter will be ignored.
         Can be None if no iteration-specific autoencoders are used (default: None)
-    ignore_algorithms : list
+    ignore_algorithms : tuple
         List of algorithm names (as specified in the EvaluationAlgorithm object) that should be ignored for this specific data set (default: [])
     labels_train : np.ndarray
         initial labels used for semisupervised clustering
@@ -741,11 +767,12 @@ class EvaluationDataset():
     >>> ed2 = EvaluationDataset(name="wine", data=X, labels_true=L)
     """
 
-    def __init__(self, name: str, data: np.ndarray, labels_true: np.ndarray = None, data_loader_params: dict = {},
-                 train_test_split: bool = None, preprocess_methods: list = None, preprocess_params: list = {},
-                 iteration_specific_autoencoders: list = None, ignore_algorithms: list = [], labels_train=None):
+    def __init__(self, name: str, data: np.ndarray, labels_true: np.ndarray = None, data_loader_params: dict = None,
+                 train_test_split: bool = None, preprocess_methods: list = None, preprocess_params: list = None,
+                 iteration_specific_autoencoders: list = None, ignore_algorithms: tuple = (), , labels_train=None):
         assert type(name) is str, "name must be a string"
         self.name = name
+        assert "." not in name, "name must not contain a dot"
         assert type(data) is np.ndarray or type(data) is str or callable(data), "data must be a numpy array, a string " \
                                                                                 "containing the path to a data file or a " \
                                                                                 "function returning a data and a labels array"
@@ -753,8 +780,8 @@ class EvaluationDataset():
         assert labels_true is None or type(labels_true) is int or type(labels_true) is list or type(labels_true) is \
                np.ndarray, "gt_columns must be an int, a list, a numpy array or None"
         self.labels_true = labels_true
-        assert type(data_loader_params) is dict, "data_loader_params must be a dict"
-        self.data_loader_params = data_loader_params
+        assert data_loader_params is None or type(data_loader_params) is dict, "data_loader_params must be a dict"
+        self.data_loader_params = {} if data_loader_params is None else data_loader_params
         assert train_test_split is None or type(train_test_split) is bool or type(train_test_split) is list or type(
             train_test_split) is np.ndarray, "train_test_split must be None, a bool, list or numpy array"
         assert type(train_test_split) is not bool or callable(
@@ -763,13 +790,14 @@ class EvaluationDataset():
         assert callable(preprocess_methods) or type(
             preprocess_methods) is list or preprocess_methods is None, "preprocess_methods must be a method, a list of methods or None"
         self.preprocess_methods = preprocess_methods
-        assert type(preprocess_params) is dict or type(
+        assert preprocess_params is None or type(preprocess_params) is dict or type(
             preprocess_methods) is list, "preprocess_params must be a dict or a list of dicts"
-        self.preprocess_params = preprocess_params
+        self.preprocess_params = {} if preprocess_params is None else preprocess_params
         assert type(
             iteration_specific_autoencoders) is list or iteration_specific_autoencoders is None, "iteration_specific_autoencoders must be a list or None"
         self.iteration_specific_autoencoders = iteration_specific_autoencoders
-        assert type(ignore_algorithms) is list, "ignore_algorithms must be a list"
+        assert type(ignore_algorithms) is list or type(
+            ignore_algorithms) is tuple, "ignore_algorithms must be a tuple or a list"
         self.ignore_algorithms = ignore_algorithms
         assert labels_train is None or type(labels_train) is np.ndarray, "labels_train must be a numpy array or None"
         self.labels_train = labels_train
@@ -801,13 +829,13 @@ class EvaluationMetric():
     >>> em2 = EvaluationMetric(name="silhouette", metric=silhouette, use_gt=False)
     """
 
-    def __init__(self, name: str, metric: Callable, params: dict = {}, use_gt: bool = True):
+    def __init__(self, name: str, metric: Callable, params: dict = None, use_gt: bool = True):
         assert type(name) is str, "name must be a string"
         self.name = name
         assert callable(metric), "method must be a method"
         self.method = metric
-        assert type(params) is dict, "params must be a dict"
-        self.params = params
+        assert params is None or type(params) is dict, "params must be a dict"
+        self.params = {} if params is None else params
         assert type(use_gt) is bool, "use_gt must be bool"
         self.use_gt = use_gt
 
@@ -835,7 +863,7 @@ class EvaluationAlgorithm():
         Specify preprocessing steps performed on each data set before executing the clustering algorithm.
         Can be either a list of callable functions or a single callable function.
         Will also be applied to an optional test data set (default: None)
-    preprocess_params : list
+    preprocess_params : dict
         List of dictionaries containing the parameters for the preprocessing methods.
         Needs one entry for each method in preprocess_methods.
         If only a single preprocessing method is given (instead of a list) a single dictionary is expected (default: {})
@@ -850,21 +878,22 @@ class EvaluationAlgorithm():
     >>> ea2 = EvaluationAlgorithm(name="SubKMeans", algorithm=SubKmeans, params={"n_clusters": None})
     """
 
-    def __init__(self, name: str, algorithm: ClusterMixin, params: dict = {}, deterministic: bool = False,
-                 preprocess_methods: list = None, preprocess_params: list = {}):
+    def __init__(self, name: str, algorithm: ClusterMixin, params: dict = None, deterministic: bool = False,
+                 preprocess_methods: list = None, preprocess_params: dict = None):
         assert type(name) is str, "name must be a string"
+        assert "." not in name, "name must not contain a dot"
         self.name = name
         self.algorithm = algorithm
-        assert type(params) is dict, "params must be a dict"
-        self.params = params
+        assert params is None or type(params) is dict, "params must be a dict"
+        self.params = {} if params is None else params
         assert type(deterministic) is bool, "deterministic must be bool"
         self.deterministic = deterministic
         assert callable(preprocess_methods) or type(
             preprocess_methods) is list or preprocess_methods is None, "preprocess_methods must be a method, a list of methods or None"
         self.preprocess_methods = preprocess_methods
-        assert type(preprocess_params) is dict or type(
+        assert preprocess_params is None or type(preprocess_params) is dict or type(
             preprocess_methods) is list, "preprocess_params must be a dict or a list of dicts"
-        self.preprocess_params = preprocess_params
+        self.preprocess_params = {} if preprocess_params is None else preprocess_params
 
 
 class EvaluationAutoencoder():
@@ -891,14 +920,14 @@ class EvaluationAutoencoder():
     >>> ea = EvaluationAutoencoder(path="PATH", autoencoder_class=FeedforwardAutoencoder, params={"layers": [256, 128, 64, 10], "bias": False})
     """
 
-    def __init__(self, path: str, autoencoder_class: torch.nn.Module, params: dict = {},
+    def __init__(self, path: str, autoencoder_class: torch.nn.Module, params: dict = None,
                  path_custom_dataloaders: tuple = None):
         assert type(path) is str, "path must be a string"
         self.path = path
         assert issubclass(autoencoder_class, torch.nn.Module), "autoencoder_class must be a torch.nn.Module"
         self.autoencoder_class = autoencoder_class
-        assert type(params) is dict, "params must be a dict"
-        self.params = params
+        assert params is None or type(params) is dict, "params must be a dict"
+        self.params = {} if params is None else params
         assert path_custom_dataloaders is None or (
                 len(path_custom_dataloaders) == 2 and type(path_custom_dataloaders[0]) is str and type(
             path_custom_dataloaders[

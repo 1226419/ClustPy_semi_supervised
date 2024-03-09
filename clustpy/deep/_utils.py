@@ -1,9 +1,9 @@
+from sklearn.base import ClusterMixin
+import inspect
 import torch
 from itertools import islice
 import numpy as np
 import random
-from sklearn.base import ClusterMixin
-import inspect
 from sklearn.metrics.pairwise import pairwise_distances_argmin_min
 import os
 
@@ -17,7 +17,7 @@ def set_torch_seed(random_state: np.random.RandomState) -> None:
     random_state : np.random.RandomState
         use a fixed random state to get a repeatable solution
     """
-    seed = random_state.get_state()[1][0]
+    seed = (random_state.get_state()[1][0]).item()
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
@@ -112,7 +112,11 @@ def encode_batchwise(dataloader: torch.utils.data.DataLoader, module: torch.nn.M
     embeddings = []
     for batch in dataloader:
         batch_data = batch[1].to(device)
-        embeddings.append(module.encode(batch_data).detach().cpu())
+        embedded_data = module.encode(batch_data)
+        # In case encode() returns more than one value (e.g., for a variational autoencoder), we will pick the first
+        if type(embedded_data) is tuple:
+            embedded_data = embedded_data[0]
+        embeddings.append(embedded_data.detach().cpu())
     embeddings_numpy = torch.cat(embeddings, dim=0).numpy()
     return embeddings_numpy
 
@@ -140,8 +144,13 @@ def decode_batchwise(dataloader: torch.utils.data.DataLoader, module: torch.nn.M
     reconstructions = []
     for batch in dataloader:
         batch_data = batch[1].to(device)
-        embedding = module.encode(batch_data)
-        reconstructions.append(module.decode(embedding).detach().cpu())
+        embedded_data = module.encode(batch_data)
+        # In case encode() returns more than one value (e.g., for a variational autoencoder), we all of them will be used for decoding
+        if type(embedded_data) is tuple:
+            decoded_data = module.decode(*embedded_data)
+        else:
+            decoded_data = module.decode(embedded_data)
+        reconstructions.append(decoded_data.detach().cpu())
     reconstructions_numpy = torch.cat(reconstructions, dim=0).numpy()
     return reconstructions_numpy
 
@@ -280,6 +289,7 @@ def embedded_kmeans_prediction(dataloader: torch.utils.data.DataLoader, cluster_
     embedded_data = encode_batchwise(dataloader, module, device)
     predicted_labels, _ = pairwise_distances_argmin_min(X=embedded_data, Y=cluster_centers, metric='euclidean',
                                                         metric_kwargs={'squared': True})
+    predicted_labels = predicted_labels.astype(np.int32)
     return predicted_labels
 
 
@@ -305,7 +315,7 @@ def run_initial_clustering(X: np.ndarray, n_clusters: int, clustering_class: Clu
     Returns
     -------
     tuple : (int, np.ndarray, np.ndarray, ClusterMixin)
-        The number of clusters (can change if e.g. DBSCAN is used)
+        The number of clusters (can change if e.g. DBSCAN is used),
         The initial cluster labels,
         The initial cluster centers,
         The clustering object
@@ -315,17 +325,17 @@ def run_initial_clustering(X: np.ndarray, n_clusters: int, clustering_class: Clu
         clustering_class).kwonlyargs
     # Check if n_clusters or n_components is contained in the possible parameters
     if "n_clusters" in clustering_class_parameters:
-        if "random_state" in clustering_class_parameters:
+        if "random_state" in clustering_class_parameters and "random_state" not in clustering_params.keys():
             clustering_algo = clustering_class(n_clusters=n_clusters, random_state=random_state, **clustering_params)
         else:
             clustering_algo = clustering_class(n_clusters=n_clusters, **clustering_params)
     elif "n_components" in clustering_class_parameters:  # in case of GMM
-        if "random_state" in clustering_class_parameters:
+        if "random_state" in clustering_class_parameters and "random_state" not in clustering_params.keys():
             clustering_algo = clustering_class(n_components=n_clusters, random_state=random_state, **clustering_params)
         else:
             clustering_algo = clustering_class(n_components=n_clusters, **clustering_params)
     else:  # in case of e.g., DBSCAN
-        if "random_state" in clustering_class_parameters:
+        if "random_state" in clustering_class_parameters and "random_state" not in clustering_params.keys():
             clustering_algo = clustering_class(random_state=random_state, **clustering_params)
         else:
             clustering_algo = clustering_class(**clustering_params)
