@@ -32,7 +32,6 @@ def load_saved_autoencoder(path: str, autoencoder_class: torch.nn.Module, params
     params = {} if params is None else params
     autoencoder = autoencoder_class(**params)
     autoencoder.load_parameters(path)
-    autoencoder.fitted = True # is this necessary ?
     return autoencoder
 
 
@@ -769,7 +768,7 @@ class EvaluationDataset():
 
     def __init__(self, name: str, data: np.ndarray, labels_true: np.ndarray = None, data_loader_params: dict = None,
                  train_test_split: bool = None, preprocess_methods: list = None, preprocess_params: list = None,
-                 iteration_specific_autoencoders: list = None, ignore_algorithms: tuple = (), , labels_train=None):
+                 iteration_specific_autoencoders: list = None, ignore_algorithms: tuple = (), labels_train=None):
         assert type(name) is str, "name must be a string"
         self.name = name
         assert "." not in name, "name must not contain a dot"
