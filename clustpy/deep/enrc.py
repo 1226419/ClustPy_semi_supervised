@@ -2217,7 +2217,6 @@ class ENRC(BaseEstimator, ClusterMixin):
         return centers_rec.detach().cpu().numpy()
 
 
-
 class ACeDeC(ENRC):
     """
     Autoencoder Centroid-based Deep Cluster (ACeDeC) can be seen as a special case of ENRC where we have one

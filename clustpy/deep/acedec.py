@@ -216,7 +216,7 @@ class _ACeDeC_Module(torch.nn.Module):
         else:
             raise ValueError(f"init={self.update_cluster_centers} is not implemented.")
 
-    def forward(self, z, batch_labels=None, epoch_i=None):
+    def forward(self, z, assignment_matrix_dict: dict = None, batch_labels=None, epoch_i=None):
         """Calculates the k-means loss and cluster assignments for each clustering.
 
         Parameters
@@ -239,7 +239,11 @@ class _ACeDeC_Module(torch.nn.Module):
 
 
         subspace_losses = 0
-        assignment_matrix_dict = {}
+        if assignment_matrix_dict is None:
+            assignment_matrix_dict = {}
+            overwrite_assignments = True
+        else:
+            overwrite_assignments = False
 
         for i, centers_i in enumerate(self.centers):
             # handle the cluster spaces - one cluster space for each label
@@ -250,7 +254,10 @@ class _ACeDeC_Module(torch.nn.Module):
                                                                    weights=subspace_betas[i, :])
                 weighted_squared_diff /= z_rot.shape[0]
                 assignments = weighted_squared_diff.detach().argmin(1)
-                current_labels = batch_labels[:, i]
+
+                current_labels = batch_labels
+                if current_labels.ndim > 1:
+                    current_labels = batch_labels[:, i]
                 # get a mask that is 1 if the current_label value is -1 and 0 otherwise
                 current_labels_mask = (current_labels != -1).int()
                 # replace assignments values with current_labels values where current_labels_mask is 1
@@ -359,7 +366,8 @@ class _ACeDeC_Module(torch.nn.Module):
         self.to_device(device)
 
     #TODO: ground_truth_labels and old_predicted_labels and new_predicted_labels
-    def fit(self, data, labels, optimizer, max_epochs, model, batch_size, loss_fn=torch.nn.MSELoss(),
+    def fit(self, trainloader: torch.utils.data.DataLoader, evalloader: torch.utils.data.DataLoader,
+            data, labels, optimizer, max_epochs, model, batch_size, loss_fn=torch.nn.MSELoss(),
             device=torch.device("cpu"), print_step=10, debug=True, scheduler=None, fix_rec_error=False,
             tolerance_threshold=None):
         """Trains ACEDEC and the autoencoder in place.
@@ -406,21 +414,22 @@ class _ACeDeC_Module(torch.nn.Module):
         labels = labels[:, None] # what is that ??
         # data_tensor = torch.from_numpy(data)
 
-        trainloader = get_dataloader(data, additional_inputs=labels,
-                                     batch_size=batch_size, shuffle=True, drop_last=True)
-
-        evalloader = get_dataloader(data, batch_size=batch_size, shuffle=False,
-                                    drop_last=False)
-
+        if trainloader is None and data is not None:
+            trainloader = get_dataloader(data, additional_inputs=labels, batch_size=batch_size, shuffle=True, drop_last=True)
+        elif trainloader is None and data is None:
+            raise ValueError("trainloader and data cannot be both None.")
+        if evalloader is None and data is not None:
+            # Evalloader is used for checking label change. Only difference to the trainloader here is that shuffle=False.
+            evalloader = get_dataloader(data, batch_size=batch_size, shuffle=False, drop_last=False)
         i = 0
         labels_old = None
         for epoch_i in range(max_epochs):
-            # Right place for optimal beta weights ?
-            subspace_optimal_beta_weights = calculate_optimal_beta_weights_special_case(embedded_data_unlabeled,
-                                                                                self.centers, self.V, batch_size)
             for batch in trainloader:
-                batch_labels = batch[2].to(device)
-                batch = batch[1].to(device)
+                if len(batch) == 3: # maybe change this to use ndim and make sure order is always good
+                    batch_labels = batch[2].to(device)
+                    batch = batch[1].to(device)
+                else:
+                    batch = batch[1].to(device)
 
                 embedded_data = model.encode(batch)
                 if self.loss_calculation == "acedec":
@@ -459,7 +468,10 @@ class _ACeDeC_Module(torch.nn.Module):
 
                     embedded_data_unlabeled = embedded_data[batch_labels[0, :] == -1]
                     embedded_data_labeled = embedded_data[batch_labels[0, :] != -1]
-
+                    # Right place for optimal beta weights ?
+                    subspace_optimal_beta_weights = calculate_optimal_beta_weights_special_case(embedded_data_unlabeled,
+                                                                                                self.centers, self.V,
+                                                                                                batch_size)
                     # TODO add reconstruction loss
                     # TODO handle reconstruction space
                     prediction = _dec_predict(self.centers, embedded_data_unlabeled, self.alpha,
@@ -577,22 +589,20 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
     # Setup dataloaders
     print("setup dataloaders")
     if custom_trainloader is None:
+        trainloader = get_dataloader(X, batch_size=batch_size, additional_inputs=y, shuffle=True, drop_last=True)
+    else:
         trainloader = custom_trainloader
-    else:
-        trainloader = get_dataloader(X, batch_size=batch_size, shuffle=True, drop_last=True)
-
     if custom_testloader is None:
-        testloader = custom_testloader
+        testloader = get_dataloader(X, batch_size=batch_size, additional_inputs=y, shuffle=False, drop_last=False)
     else:
-        testloader = get_dataloader(X, batch_size=batch_size, shuffle=False, drop_last=False)
-
+        testloader = custom_testloader
     # Use subsample of the data if specified
     print("subsample")
     print("size", init_subsample_size)
     if init_subsample_size is not None and init_subsample_size > 0:
         rng = np.random.default_rng(random_state)
         rand_idx = rng.choice(X.shape[0], init_subsample_size, replace=False)
-        subsampleloader = get_dataloader(X[rand_idx], batch_size=batch_size, shuffle=False, drop_last=False)
+        subsampleloader = get_dataloader(X[rand_idx], batch_size=batch_size, additional_inputs=y[rand_idx], shuffle=False, drop_last=False)
         y = y[rand_idx]
     else:
         subsampleloader = testloader
@@ -647,7 +657,8 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
 
         # Training loop
     print("Start ACEDEC training")
-    acedec_module.fit(data=X, labels=y,
+    acedec_module.fit(trainloader=trainloader, evalloader=testloader,
+                      data=X, labels=y,
                     max_epochs=max_epochs,
                     optimizer=optimizer,
                     loss_fn=loss_fn,
@@ -661,6 +672,9 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
 
     # Recluster
     print("Recluster")
+    cluster_labels_before_reclustering = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader,
+                                                                       device=device, use_P=True)
+
     if final_reclustering:
         acedec_module.recluster(y=y, dataloader=subsampleloader, model=autoencoder, device=device)
     # TODO: skip recluster call and do it outside in the example file
@@ -672,7 +686,7 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
     betas = acedec_module.subspace_betas().detach().cpu().numpy()
     P = acedec_module.P
     m = acedec_module.m
-    return cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder
+    return cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering
 
 
 class ACEDEC(BaseEstimator, ClusterMixin):
@@ -737,6 +751,8 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.device = device
+        if self.device is None:
+            self.device = detect_device()
         self.batch_size = batch_size
         self.pretrain_learning_rate = pretrain_optimizer_params["lr"]
         self.clustering_learning_rate = clustering_optimizer_params["lr"]
@@ -803,7 +819,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         if y is None:
             y = np.zeros(X.shape[0])-1
 
-        cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder = _acedec(X=X, y=y,
+        cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering= _acedec(X=X, y=y,
                                                                                          n_clusters=self.n_clusters,
                                                                                          V=self.V,
                                                                                          P=self.P,
@@ -819,8 +835,8 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          degree_of_space_distortion=self.degree_of_space_distortion,
                                                                                          degree_of_space_preservation=self.degree_of_space_preservation,
                                                                                          autoencoder=self.autoencoder,
-                                                                                         custom_testloader= self.custom_testloader,
-                                                                                         custom_trainloader= self.custom_trainloader,
+                                                                                         custom_testloader=self.custom_testloader,
+                                                                                         custom_trainloader=self.custom_trainloader,
                                                                                          embedding_size=self.embedding_size,
                                                                                          init=self.init,
                                                                                          random_state=self.random_state,
@@ -844,6 +860,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         # Update class variables
         self.labels_ = cluster_labels
         self.cluster_centers_ = cluster_centers
+        self.acedec_labels_ = cluster_labels_before_reclustering[:, 0]
         self.V = V
         self.m = m
         self.P = P
@@ -852,7 +869,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         self.autoencoder = autoencoder
         return self
 
-    def predict(self, X, y=None, use_P=True):
+    def predict(self, X, use_P=True):
         """Predicts the labels for each clustering of X in a mini-batch manner.
 
         Parameters
@@ -864,9 +881,11 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         -------
         predicted_labels : np.ndarray, n x c matrix, where n is the number of data points in X and c is the number of clusterings.
         """
+
         dataloader = get_dataloader(X, batch_size=self.batch_size, shuffle=False, drop_last=False)
 
-        self.autoencoder = self.autoencoder.to(self.device)
+
+        self.autoencoder.to(self.device)
         return enrc_predict_batchwise(V=torch.from_numpy(self.V).float().to(self.device),
                                       centers=[torch.from_numpy(c).float().to(self.device) for c in
                                                self.cluster_centers_],
@@ -945,17 +964,19 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                             self.cluster_centers_[subspace_index] if plot_centers else None,
                             true_labels=gt, equal_axis=equal_axis)
 
-    def reconstruct_subspace_centroids(self, subspace_index):
+    def reconstruct_subspace_centroids(self, subspace_index: int = 0) -> np.ndarray:
         """
         Reconstructs the centroids in the specified subspace_nr.
 
         Parameters
         ----------
-        subspace_index: int, index of the subspace_nr
+        subspace_index: int
+            index of the subspace_nr (default: 0)
 
         Returns
         -------
-        reconstructed centers as np.ndarray
+        centers_rec : centers_rec
+            reconstructed centers as np.ndarray
         """
         cluster_space_centers = self.cluster_centers_[subspace_index]
         # rotate back as centers are in the V-rotated space

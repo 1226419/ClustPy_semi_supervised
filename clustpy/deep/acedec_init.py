@@ -78,11 +78,11 @@ def acedec_init(y, embedded_data, n_clusters, init="auto", rounds=10, input_cent
             print(input_center.shape)
         print(embedded_data.shape)
         print(y.shape)
-        plot_2d_data(embedded_data,  centers=input_centers[0], true_labels=y, title="before enrc_init") # only plot first label dim (There
+        plot_2d_data(embedded_data[:, 0:2],  centers=input_centers[0][:, 0:2], true_labels=y, title="before enrc_init") # only plot first label dim (There
         # is only one for now.
 
     if debug:
-        plot_2d_data(embedded_data@V, centers= input_centers[0], true_labels=y, title="after enrc_init")
+        plot_2d_data(embedded_data@V[:, 0:2], centers=input_centers[0][:, 0:2], true_labels=y, title="after enrc_init")
     return input_centers, P, V, beta_weights
 
 
