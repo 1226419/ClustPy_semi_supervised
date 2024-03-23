@@ -405,7 +405,7 @@ class _ACeDeC_Module(torch.nn.Module):
         print("embedded_rot shape", embedded_rot.shape)
         centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
                                                                 max_iter=300, optimizer_params=self.reclustering_kwargs,
-                                                                optimizer_class=torch.optim.adam.Adam,
+                                                                optimizer_class=torch.optim.Adam,
                                                                 init="acedec", debug=False,
                                                                 init_kwargs=None,
                                                                 batch_size=dataloader.batch_size,
