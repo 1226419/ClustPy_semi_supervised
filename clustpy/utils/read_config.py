@@ -18,13 +18,21 @@ def get_dataloaders_from_config(config_dict: dict):
         dataset_name = list(dataset.keys())[0]
         print(dataset[dataset_name])
         if dataset_name == "mnist":
-            data, labels = load_mnist()
+            dataset = load_mnist()
+            data = dataset.images
+            labels = dataset.target
         elif dataset_name == "iris":
-            data, labels = load_iris()
+            dataset = load_iris()
+            data = dataset.images
+            labels = dataset.target
         elif dataset_name == "banknotes":
-            data, labels = load_banknotes()
+            dataset = load_banknotes()
+            data = dataset.images
+            labels = dataset.target
         elif dataset_name == "fmnist":
-            data, labels = load_fmnist()
+            dataset = load_fmnist()
+            data = dataset.images
+            labels = dataset.target
         else:
             raise ValueError("Dataset not found")
 

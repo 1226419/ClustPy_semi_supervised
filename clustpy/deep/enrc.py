@@ -375,6 +375,16 @@ class _ENRC_Module(torch.nn.Module):
         embedded_rot = np.matmul(embedded_data, V)
 
         # Apply reclustering in the rotated space, because V does not have to be orthogonal, so it could learn a mapping that is not recoverable by nrkmeans.
+        print("reclustering values")
+        print("n_clusters", n_clusters)
+        print("rounds", rounds)
+        print("optimizer_params", optimizer_params)
+        print("optimizer_class", optimizer_class)
+        print("reclustering_strategy", reclustering_strategy)
+        print("init_kwargs", init_kwargs)
+        print("dataloader.batch_size", dataloader.batch_size)
+        print("embedded_rot shape", embedded_rot.shape)
+
         centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
                                                                 max_iter=300, optimizer_params=optimizer_params, optimizer_class=optimizer_class,
                                                                 init=reclustering_strategy, debug=False, init_kwargs=init_kwargs, batch_size=dataloader.batch_size,
@@ -1013,7 +1023,7 @@ def nrkmeans_init(data: np.ndarray, n_clusters: list, rounds: int = 10, max_iter
     if max(n_clusters) >= data.shape[1]:
         mdl_for_noisespace = True
         if debug:
-            print("mdl_for_noisespace=True, because number of clusters is larger then data dimensionality")
+            print("mdl_for_noisespace=True, because number of clusters is larger than data dimensionality")
     else:
         mdl_for_noisespace = False
     for i in range(rounds):
@@ -1317,7 +1327,11 @@ def acedec_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batc
         optimizer = optimizer_class(param_dict)
         # Training loop
         # For the initialization we increase the weight for the rec error to enforce close to orthogonal V by setting fix_rec_error=True
-        if debug: print("Start pretraining parameters with SGD")
+        if debug:
+            print("Start pretraining parameters with SGD")
+            print("data shape", data.shape)
+            print("max_epochs", max_epochs)
+            print("batch_size", batch_size)
         enrc_module.fit(data=data,
                         trainloader=None,
                         evalloader=None,
@@ -1424,6 +1438,12 @@ def enrc_init(data: np.ndarray, n_clusters: list, init: str = "auto", rounds: in
     ----------
     ValueError : if init variable is passed that is not implemented.
     """
+    if debug:
+        print("init params")
+        print(init)
+        print(init_kwargs)
+        print(optimizer_params)
+        print(optimizer_class)
     if init == "nrkmeans" or init == "subkmeans":
         centers, P, V, beta_weights = nrkmeans_init(data=data, n_clusters=n_clusters, rounds=rounds,
                                                     input_centers=input_centers, P=P, V=V, random_state=random_state,
@@ -2360,4 +2380,4 @@ class ACeDeC(ENRC):
             The predicted labels
         """
         predicted_labels = super().predict(X, use_P, dataloader)
-        return predicted_labels[:,0]
+        return predicted_labels[:, 0]

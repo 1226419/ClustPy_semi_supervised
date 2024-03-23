@@ -6,7 +6,8 @@ from clustpy.deep._data_utils import get_dataloader
 from clustpy.deep._train_utils import get_trained_autoencoder
 from clustpy.utils.plots import plot_scatter_matrix, plot_2d_data
 from clustpy.deep.enrc import enrc_init, enrc_predict_batchwise,_get_P, _rotate, _rotate_back, enrc_predict, \
-    reinit_centers, _are_labels_equal, available_init_strategies, calculate_optimal_beta_weights_special_case
+    reinit_centers, _are_labels_equal, available_init_strategies, calculate_optimal_beta_weights_special_case, \
+    enrc_encode_decode_batchwise_with_loss
 from clustpy.deep.acedec_init import acedec_init
 from clustpy.deep.acedec_recluster import acedec_recluster
 from clustpy.deep.dcn import DCN
@@ -56,7 +57,8 @@ class _ACeDeC_Module(torch.nn.Module):
                  cluster_space_module=DCN, noise_space_module=DCN, cluster_assignment="acedec",
                  cluster_assignment_kwargs=None, reclustering="like_init", reclustering_kwargs=None,
                  update_cluster_centers="acedec", update_cluster_centers_kwargs=None,
-                 loss_calculation="acedec", loss_calculation_kwargs=None):
+                 loss_calculation="acedec", loss_calculation_kwargs=None, augmentation_invariance: bool = False,
+                 ):
         super().__init__()
         self.P = P
         self.m = [len(P_i) for P_i in self.P]
@@ -78,6 +80,7 @@ class _ACeDeC_Module(torch.nn.Module):
         self.center_lr = center_lr
         self.lonely_centers_count = []
         self.mask_sum = []
+        self.augmentation_invariance = augmentation_invariance
         for centers_i in self.centers:
             self.lonely_centers_count.append(np.zeros((centers_i.shape[0], 1)).astype(int))
             self.mask_sum.append(torch.zeros((centers_i.shape[0], 1)))
@@ -92,6 +95,8 @@ class _ACeDeC_Module(torch.nn.Module):
         self.loss_calculation_kwargs = loss_calculation_kwargs
         # self.cluster_space_module = cluster_space_module(centers)
         # self.noise_space_module = noise_space_module(centers)
+        self.degree_of_space_distortion = degree_of_space_distortion
+        self.degree_of_space_preservation = degree_of_space_preservation
 
     def to_device(self, device):
         """Loads all ACeDeC parameters to device that are needed during the training and prediction (including the
@@ -156,6 +161,20 @@ class _ACeDeC_Module(torch.nn.Module):
         z = _rotate_back(z_rot, self.V)
         return z
 
+    def rotation_loss(self) -> torch.Tensor:
+        """
+        Computes how much the rotation matrix self.V diverges from an orthogonal matrix by calculating |V^T V - I|.
+        For an orthogonal matrix this difference is 0, as V^T V=I.
+
+        Returns
+        -------
+        rotation_loss : torch.Tensor
+            the average absolute difference between V^T times V - the identity matrix I.
+        """
+        ident = torch.matmul(self.V.t(), self.V).detach().cpu()
+        rotation_loss = (ident - torch.eye(n=ident.shape[0])).abs().mean()
+        return rotation_loss
+
     def update_center(self, data, one_hot_mask, subspace_id, labels, epoch_i):
         """Inplace update of centers of a clusterings in subspace=subspace_id in a mini-batch fashion.
 
@@ -216,35 +235,41 @@ class _ACeDeC_Module(torch.nn.Module):
         else:
             raise ValueError(f"init={self.update_cluster_centers} is not implemented.")
 
-    def forward(self, z, assignment_matrix_dict: dict = None, batch_labels=None, epoch_i=None):
+    def forward(self, z: torch.Tensor, assignment_matrix_dict: dict = None, batch_labels: torch.Tensor = None,
+                epoch_i: int = None):
         """Calculates the k-means loss and cluster assignments for each clustering.
 
         Parameters
         ----------
-        z : torch.tensor, embedded input data point, can also be a mini-batch of embedded points
-        batch_labels : torch.tensor, labels of the input data points, can also be a mini-batch of labels
-        epoch_i : int, current epoch
+        z : torch.Tensor
+            embedded input data point, can also be a mini-batch of embedded points
+        assignment_matrix_dict : dict
+            dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments (default: None)
+        batch_labels : torch.tensor
+            labels of the input data points, can also be a mini-batch of labels
+        epoch_i : int
+            current epoch
 
         Returns
         -------
-        subspace_losses : averaged sum of all k-means losses for each clustering
-        z_rot : the rotated embedded point
-        z_rot_back : the back rotated embedded point
-        assignment_matrix_dict : dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments
+        tuple : (torch.Tensor, torch.Tensor, torch.Tensor, dict)
+            subspace_losses : averaged sum of all k-means losses for each clustering
+            z_rot : the rotated embedded point
+            z_rot_back : the back rotated embedded point
+            assignment_matrix_dict : dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments
         """
         z_rot = self.rotate(z)
         z_rot_back = self.rotate_back(z_rot)
 
         subspace_betas = self.subspace_betas()
-
-
         subspace_losses = 0
+
         if assignment_matrix_dict is None:
             assignment_matrix_dict = {}
             overwrite_assignments = True
         else:
             overwrite_assignments = False
-
+        """
         for i, centers_i in enumerate(self.centers):
             # handle the cluster spaces - one cluster space for each label
             if i < len(self.centers) - 1:
@@ -278,6 +303,19 @@ class _ACeDeC_Module(torch.nn.Module):
                 one_hot_mask = torch.ones([weighted_squared_diff.shape[0], 1], dtype=torch.float,
                                           device=weighted_squared_diff.device)
                 assignment_matrix_dict[i] = one_hot_mask
+        """
+        for i, centers_i in enumerate(self.centers):
+            weighted_squared_diff = squared_euclidean_distance(z_rot, centers_i.detach(), weights=subspace_betas[i, :])
+            weighted_squared_diff /= z_rot.shape[0]
+
+            if overwrite_assignments:
+                assignments = weighted_squared_diff.detach().argmin(1)
+                one_hot_mask = int_to_one_hot(assignments, centers_i.shape[0])
+                assignment_matrix_dict[i] = one_hot_mask
+            else:
+                one_hot_mask = assignment_matrix_dict[i]
+            weighted_squared_diff_masked = weighted_squared_diff * one_hot_mask
+            subspace_losses += weighted_squared_diff_masked.sum()
 
         subspace_losses = subspace_losses / subspace_betas.shape[0]
         return subspace_losses, z_rot, z_rot_back, assignment_matrix_dict
@@ -344,16 +382,34 @@ class _ACeDeC_Module(torch.nn.Module):
                                                                 init="auto", debug=False)
         print("Warning: labels not used for reclustering")  # TODO: add labels to reclustering
         """
+        """
         centers_reclustered, P, new_V, beta_weights = acedec_recluster(y=y, embedded_data=embedded_rot,
                                                     n_clusters=n_clusters,
                                                     device=device, init="auto",
                                                     rounds=rounds, epochs=10, debug=False,
                                                     #input_centers=input_centers,
-                                                    max_iter=300, learning_rate=self.learning_rate,
+                                                    max_iter=300,
                                                     reclustering=self.reclustering,
                                                     reclustering_kwargs=self.reclustering_kwargs
                                                     )
-
+        """
+        # Apply reclustering in the rotated space, because V does not have to be orthogonal, so it could learn a mapping that is not recoverable by nrkmeans.
+        print("reclustering values")
+        print("n_clusters", n_clusters)
+        print("rounds", rounds)
+        print("optimizer_params", self.reclustering_kwargs)
+        print("optimizer_class", None)
+        print("reclustering_strategy", "acedec")
+        print("init_kwargs", None)
+        print("dataloader.batch_size", dataloader.batch_size)
+        print("embedded_rot shape", embedded_rot.shape)
+        centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
+                                                                max_iter=300, optimizer_params=self.reclustering_kwargs,
+                                                                optimizer_class=torch.optim.adam.Adam,
+                                                                init="acedec", debug=False,
+                                                                init_kwargs=None,
+                                                                batch_size=dataloader.batch_size,
+                                                                )
         # Update V, because we applied the reclustering in the rotated space
         new_V = np.matmul(V, new_V)
 
@@ -392,7 +448,7 @@ class _ACeDeC_Module(torch.nn.Module):
         model : torch.nn.Module, trained autoencoder
         enrc_module : torch.nn.Module, trained enrc module
         """
-
+        """
         # Deactivate Batchnorm and dropout
         model.eval()
         model.to(device)
@@ -401,16 +457,6 @@ class _ACeDeC_Module(torch.nn.Module):
         # Save learning rate for reclustering
         self.learning_rate = optimizer.param_groups[0]["lr"]
         # Evalloader is used for checking label change. Only difference to the trainloader here is that shuffle=False.
-        """
-        print("data", data.shape)
-        labels = labels[:, None]
-        print("labels", labels)
-        print("labels", labels.shape)
-        print("labels", labels.dtype)
-        print("data", data.dtype)
-        print("labels type", type(labels))
-        print("data type", type(data))
-        """
         labels = labels[:, None] # what is that ??
         # data_tensor = torch.from_numpy(data)
 
@@ -438,13 +484,13 @@ class _ACeDeC_Module(torch.nn.Module):
                     reconstruction = model.decode(z_rot_back)
                     rec_loss = loss_fn(reconstruction, batch)
 
-                    """ What is this for?
+                    # What is this for?
                     if fix_rec_error:
                         rec_weight = subspace_loss.item() / (rec_loss.item() + 1e-3)
                         if rec_weight < 1:
                             rec_weight = 1.0
                         rec_loss *= rec_weight
-                    """
+                    
 
                     summed_loss = subspace_loss + rec_loss
                     optimizer.zero_grad()
@@ -496,13 +542,13 @@ class _ACeDeC_Module(torch.nn.Module):
                             f"subspace_losses: {subspace_loss.item():.4f}, rec_loss: {rec_loss.item():.4f}, "
                             f"rotation_loss: not calculated")
                         # plot the subspace and cluster centers
-                        """
-                        print("the type is")
-                        print(type(torch.from_numpy(data).float()))
-                        print(type(self.V))
-                        plot_2d_data(model.encode(torch.from_numpy(data).float())@self.V, labels, self.centers,
-                                     title=f"epoch_{epoch_i}")
-                        """
+                       
+                        #print("the type is")
+                        #print(type(torch.from_numpy(data).float()))
+                        #print(type(self.V))
+                        #plot_2d_data(model.encode(torch.from_numpy(data).float())@self.V, labels, self.centers,
+                        #             title=f"epoch_{epoch_i}")
+                        
 
 
             if scheduler is not None:
@@ -523,7 +569,104 @@ class _ACeDeC_Module(torch.nn.Module):
         self.P = self.get_P()
         self.m = [len(P_i) for P_i in self.P]
         return model, self
+        """
 
+
+        # Deactivate Batchnorm and dropout
+        model.eval()
+        model.to(device)
+        self.to_device(device)
+
+        if trainloader is None and data is not None:
+            trainloader = get_dataloader(data, batch_size=batch_size, shuffle=True, drop_last=True)
+        elif trainloader is None and data is None:
+            raise ValueError("trainloader and data cannot be both None.")
+        if evalloader is None and data is not None:
+            # Evalloader is used for checking label change. Only difference to the trainloader here is that shuffle=False.
+            evalloader = get_dataloader(data, batch_size=batch_size, shuffle=False, drop_last=False)
+
+        if fix_rec_error:
+            if debug: print("Calculate initial reconstruction error")
+            _, _, init_rec_loss = enrc_encode_decode_batchwise_with_loss(V=self.V, centers=self.centers, model=model,
+                                                                         dataloader=evalloader, device=device, loss_fn=loss_fn)
+            # For numerical stability we add a small number
+            init_rec_loss += 1e-8
+            if debug: print("Initial reconstruction error is ", init_rec_loss)
+        i = 0
+        labels_old = None
+        for epoch_i in range(max_epochs):
+            for batch in trainloader:
+                if self.augmentation_invariance:
+                    batch_data_aug = batch[1].to(device)
+                    batch_data = batch[2].to(device)
+                else:
+                    batch_data = batch[1].to(device)
+
+                z = model.encode(batch_data)
+                subspace_loss, z_rot, z_rot_back, assignment_matrix_dict = self(z)
+                reconstruction = model.decode(z_rot_back)
+                rec_loss = loss_fn(reconstruction, batch_data)
+
+                if self.augmentation_invariance:
+                    z_aug = model.encode(batch_data_aug)
+                    # reuse assignments
+                    subspace_loss_aug, _, z_rot_back_aug, _ = self(z_aug, assignment_matrix_dict=assignment_matrix_dict)
+                    reconstruction_aug = model.decode(z_rot_back_aug)
+                    rec_loss_aug = loss_fn(reconstruction_aug, batch_data_aug)
+                    rec_loss = (rec_loss + rec_loss_aug) / 2
+                    subspace_loss = (subspace_loss + subspace_loss_aug) / 2
+
+                if fix_rec_error:
+                    rec_weight = rec_loss.item() / init_rec_loss + subspace_loss.item() / rec_loss.item()
+                    if rec_weight < 1:
+                        rec_weight = 1.0
+                    rec_loss *= rec_weight
+
+                summed_loss = self.degree_of_space_distortion * subspace_loss + self.degree_of_space_preservation * rec_loss
+                optimizer.zero_grad()
+                summed_loss.backward()
+                optimizer.step()
+
+                # Update Assignments and Centroids on GPU
+                with torch.no_grad():
+                    self.update_centers(z_rot, assignment_matrix_dict)
+                # Check if clusters have to be reinitialized
+                for subspace_i in range(len(self.centers)):
+                    reinit_centers(enrc=self, subspace_id=subspace_i, dataloader=trainloader, model=model,
+                                   n_samples=512, kmeans_steps=10, debug=debug)
+
+                # Increase reinit_threshold over time
+                self.reinit_threshold = int(np.sqrt(i + 1))
+
+                i += 1
+            if (epoch_i - 1) % print_step == 0 or epoch_i == (max_epochs - 1):
+                with torch.no_grad():
+                    # Rotation loss is calculated to check if its deviation from an orthogonal matrix
+                    rotation_loss = self.rotation_loss()
+                    if debug:
+                        print(
+                            f"Epoch {epoch_i}/{max_epochs - 1}: summed_loss: {summed_loss.item():.4f}, "
+                            f"subspace_losses: {subspace_loss.item():.4f}, rec_loss: {rec_loss.item():.4f},"
+                            f"rotation_loss: rotation loss not calculated")
+
+            if scheduler is not None:
+                scheduler.step()
+
+            if tolerance_threshold is not None and tolerance_threshold > 0:
+                # Check if labels have changed
+                labels_new = self.predict_batchwise(model=model, dataloader=evalloader, device=device, use_P=True)
+                if _are_labels_equal(labels_new=labels_new, labels_old=labels_old, threshold=tolerance_threshold):
+                    # training has converged
+                    if debug:
+                        print("Clustering has converged")
+                    break
+                else:
+                    labels_old = labels_new.copy()
+
+        # Extract P and m
+        self.P = self.get_P()
+        self.m = [len(P_i) for P_i in self.P]
+        return model, self
 """
 ===================== Helper Functions =====================
 """
@@ -596,6 +739,10 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
         testloader = get_dataloader(X, batch_size=batch_size, additional_inputs=y, shuffle=False, drop_last=False)
     else:
         testloader = custom_testloader
+
+    if trainloader.batch_size != batch_size:
+        if debug: print("WARNING: Specified batch_size differs from trainloader.batch_size. Will use trainloader.batch_size.")
+        batch_size = trainloader.batch_size
     # Use subsample of the data if specified
     print("subsample")
     print("size", init_subsample_size)
@@ -748,7 +895,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                  final_reclustering: bool = False):
         if type(n_clusters) == int:
             n_clusters = [n_clusters, 1]
-        self.n_clusters = n_clusters
+        self.n_clusters = n_clusters.copy()
         self.random_state = random_state
         self.device = device
         if self.device is None:
