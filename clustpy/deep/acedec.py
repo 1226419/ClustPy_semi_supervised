@@ -827,17 +827,30 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
                     print_step=print_step,
                     debug=debug)
 
-    # Recluster
-    print("Recluster")
+
     cluster_labels_before_reclustering = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader,
                                                                        device=device, use_P=True)
-
+    """
     if final_reclustering:
         acedec_module.recluster(y=y, dataloader=subsampleloader, model=autoencoder, device=device)
     # TODO: skip recluster call and do it outside in the example file
     # Predict labels and transfer other parameters to numpy
     cluster_labels = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device, use_P=True)[:, 0]
     print("CLUSTER LABELS ", cluster_labels)
+    """
+    # Recluster
+    print("Recluster")
+    if final_reclustering:
+        if debug:
+            print("Recluster")
+        acedec_module.recluster(y, dataloader=subsampleloader, model=autoencoder, device=device)
+        # Predict labels and transfer other parameters to numpy
+        cluster_labels = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device, use_P=True)
+        if debug:
+            print("Betas after reclustering")
+            print(acedec_module.subspace_betas().detach().cpu().numpy())
+    else:
+        cluster_labels = cluster_labels_before_reclustering
     cluster_centers = [centers_i.detach().cpu().numpy() for centers_i in acedec_module.centers]
     V = acedec_module.V.detach().cpu().numpy()
     betas = acedec_module.subspace_betas().detach().cpu().numpy()

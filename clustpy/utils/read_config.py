@@ -24,6 +24,7 @@ def get_dataloaders_from_config(config_dict: dict):
             tmp_dataset = load_mnist()
             data = tmp_dataset.images
             labels = tmp_dataset.target
+            """
             data = data.reshape(-1, 1, 28, 28)
             data = torch.from_numpy(data).float()
             data = data.repeat(1, 3, 1, 1)
@@ -31,6 +32,7 @@ def get_dataloaders_from_config(config_dict: dict):
             data = padding_fn(data)
             data /= 255.0
             data = data.numpy()
+            """
         elif dataset_name == "iris":
             tmp_dataset = load_iris()
             data = tmp_dataset.images
