@@ -774,7 +774,8 @@ class EvaluationDataset():
         assert "." not in name, "name must not contain a dot"
         assert type(data) is np.ndarray or type(data) is str or callable(data), "data must be a numpy array, a string " \
                                                                                 "containing the path to a data file or a " \
-                                                                                "function returning a data and a labels array"
+                                                                                "function returning a data and a labels array" \
+                                                                                f"data is {type(data)}"
         self.data = data
         assert labels_true is None or type(labels_true) is int or type(labels_true) is list or type(labels_true) is \
                np.ndarray, "gt_columns must be an int, a list, a numpy array or None"

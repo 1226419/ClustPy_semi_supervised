@@ -25,7 +25,8 @@ def get_dataloaders_from_config(config_dict: dict):
             data = tmp_dataset.images
             labels = tmp_dataset.target
             data = data.reshape(-1, 1, 28, 28)
-            data = torch.from_numpy(data).float()
+            # data = torch.from_numpy(data).float()
+            data = data.astype(float)
             data = data.repeat(1, 3, 1, 1)
             padding_fn = torchvision.transforms.Pad([2, 2], fill=0)
             data = padding_fn(data)

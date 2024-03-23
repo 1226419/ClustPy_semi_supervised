@@ -1,7 +1,8 @@
 import torch
 import numpy as np
 from typing import Union
-from clustpy.deep._utils import int_to_one_hot, squared_euclidean_distance, encode_batchwise, detect_device
+from clustpy.deep._utils import int_to_one_hot, squared_euclidean_distance, encode_batchwise, detect_device, \
+    set_torch_seed
 from clustpy.deep._data_utils import get_dataloader
 from clustpy.deep._train_utils import get_trained_autoencoder
 from clustpy.utils.plots import plot_scatter_matrix, plot_2d_data
@@ -14,6 +15,7 @@ from clustpy.deep.dcn import DCN
 from sklearn.base import BaseEstimator, ClusterMixin
 from clustpy.deep.acedec_predict import acedec_predict, acedec_predict_batchwise
 from clustpy.deep.dec import _dec_predict, _dec_compression_loss_fn
+from sklearn.utils.validation import check_random_state
 """
 ===================== ACeDeC - MODULE =====================
 """
@@ -728,7 +730,8 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
     # Set device to train on
     if device is None:
         device = detect_device()
-
+    if random_state is None:
+        random_state = np.random.RandomState
     # Setup dataloaders
     print("setup dataloaders")
     if custom_trainloader is None:
@@ -746,6 +749,7 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
     # Use subsample of the data if specified
     print("subsample")
     print("size", init_subsample_size)
+    """
     if init_subsample_size is not None and init_subsample_size > 0:
         rng = np.random.default_rng(random_state)
         rand_idx = rng.choice(X.shape[0], init_subsample_size, replace=False)
@@ -753,7 +757,13 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
         y = y[rand_idx]
     else:
         subsampleloader = testloader
-
+    """
+    if init_subsample_size is not None and init_subsample_size > 0 and init_subsample_size < X.shape[0]:
+        rand_idx = random_state.choice(X.shape[0], init_subsample_size, replace=False)
+        subsampleloader = get_dataloader(X[rand_idx], batch_size=batch_size, shuffle=False, drop_last=False)
+        y = y[rand_idx]
+    else:
+        subsampleloader = testloader
     # Setup autoencoder
     print("setup autoencoder")
     autoencoder = get_trained_autoencoder(trainloader, pretrain_learning_rate, pretrain_epochs, device,
@@ -896,7 +906,8 @@ class ACEDEC(BaseEstimator, ClusterMixin):
         if type(n_clusters) == int:
             n_clusters = [n_clusters, 1]
         self.n_clusters = n_clusters.copy()
-        self.random_state = random_state
+        self.random_state = check_random_state(random_state)
+        set_torch_seed(self.random_state)
         self.device = device
         if self.device is None:
             self.device = detect_device()
