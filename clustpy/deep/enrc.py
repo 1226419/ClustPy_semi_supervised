@@ -759,12 +759,18 @@ def enrc_predict_batchwise(V: torch.Tensor, centers: list, subspace_betas: torch
     """
     model.eval()
     predictions = []
+    print("enrc predict batchwise centers", centers)
+    print("enrc predict batchwise subspace_betas", subspace_betas)
+    print("enrc predict batchwise V", V)
+    print("enrc predict batchwise use_P", use_P)
     with torch.no_grad():
         for batch in dataloader:
             batch_data = batch[1].to(device)
             z = model.encode(batch_data)
             pred_i = enrc_predict(z=z, V=V, centers=centers, subspace_betas=subspace_betas, use_P=use_P)
             predictions.append(pred_i)
+    print("enrc predict batchwise", np.concatenate(predictions))
+    print("enrc predict batchwise shape", np.concatenate(predictions).shape)
     return np.concatenate(predictions)
 
 def enrc_encode_decode_batchwise_with_loss(V: torch.Tensor, centers: list, model: torch.nn.Module, dataloader: torch.utils.data.DataLoader,
@@ -1840,7 +1846,8 @@ def _enrc(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_centers
         print("Run init: ", init)
         print("Start encoding")
     embedded_data = encode_batchwise(subsampleloader, autoencoder, device)
-    if debug: print("Start initializing parameters")
+    if debug:
+        print("Start initializing parameters")
     # set init epochs proportional to clustering_epochs
     init_epochs = np.max([10, int(0.2*clustering_epochs)])
     input_centers, P, V, beta_weights = enrc_init(data=embedded_data, n_clusters=n_clusters, device=device, init=init,
@@ -2357,7 +2364,7 @@ class ACeDeC(ENRC):
                 returns the AceDeC object
             """
             super().fit(X, y)
-            self.labels_ = self.labels_[:,0]
+            self.labels_ = self.labels_[:, 0]
             self.acedec_labels_ = self.enrc_labels_[:, 0]
             return self
 

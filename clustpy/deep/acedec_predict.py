@@ -54,7 +54,7 @@ def acedec_predict_batchwise(V, centers, subspace_betas, model, dataloader, devi
     predicted_labels : n x c matrix, where n is the number of data points in z and c is the number of clusterings.
     """
     if prediction == "acedec":
-        return enrc_predict_batchwise(V, centers[:-1], subspace_betas, model, dataloader, device=device, use_P=use_P)
+        return enrc_predict_batchwise(V, centers, subspace_betas, model, dataloader, device=device, use_P=use_P)
     elif prediction =="dec":
         if "alpha" in prediction_kwargs.keys():
             alpha = prediction_kwargs["alpha"]
@@ -73,6 +73,6 @@ def acedec_predict_batchwise(V, centers, subspace_betas, model, dataloader, devi
             for batch in dataloader:
                 batch_data = batch[1].to(device)
                 z = model.encode(batch_data)
-                pred_i = _dec_predict(centers[:-1], z, alpha, feature_weights)
+                pred_i = _dec_predict(centers, z, alpha, feature_weights)
                 predictions.append(pred_i)
         return np.concatenate(predictions)

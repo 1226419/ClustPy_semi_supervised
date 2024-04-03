@@ -354,7 +354,7 @@ class _ACeDeC_Module(torch.nn.Module):
                                       subspace_betas=self.subspace_betas(), device=device, use_P=use_P)
 
 
-    def recluster(self, y, dataloader, model, device=torch.device('cpu'), rounds=1):
+    def recluster(self, y, dataloader, model, device=torch.device('cpu'), rounds=1, optimizer_params: dict = {}, optimizer_class: torch.optim.Optimizer = None,):
         """Recluster ACeDeC inplace using NrKMeans or SGD (depending on the data set size, see init='auto' for details).
            Can lead to improved and more stable performance.
            Updates self.P, self.beta_weights, self.V and self.centers.
@@ -399,15 +399,15 @@ class _ACeDeC_Module(torch.nn.Module):
         print("reclustering values")
         print("n_clusters", n_clusters)
         print("rounds", rounds)
-        print("optimizer_params", self.reclustering_kwargs)
-        print("optimizer_class", None)
+        print("optimizer_params", optimizer_params)
+        print("optimizer_class", optimizer_class)
         print("reclustering_strategy", "acedec")
         print("init_kwargs", None)
         print("dataloader.batch_size", dataloader.batch_size)
         print("embedded_rot shape", embedded_rot.shape)
         centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
-                                                                max_iter=300, optimizer_params=self.reclustering_kwargs,
-                                                                optimizer_class=torch.optim.Adam,
+                                                                max_iter=300, optimizer_params=optimizer_params,
+                                                                optimizer_class=optimizer_class,
                                                                 init="acedec", debug=False,
                                                                 init_kwargs=None,
                                                                 batch_size=dataloader.batch_size,
@@ -720,7 +720,7 @@ def beta_weights_init(P, n_dims, high_value=0.9):
 """
 
 def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning_rate,
-          learning_rate, pretrain_epochs, max_epochs, optimizer_class, loss_fn,
+          learning_rate, pretrain_epochs, max_epochs, optimizer_class, clustering_optimizer_params, loss_fn,
           degree_of_space_distortion, degree_of_space_preservation, autoencoder, custom_trainloader, custom_testloader,
           embedding_size, init, random_state, device, scheduler, scheduler_params, tolerance_threshold, init_kwargs,
           init_subsample_size, debug, print_step, final_reclustering, cluster_assignment, cluster_assignment_kwargs,
@@ -798,7 +798,7 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
                                    update_cluster_centers_kwargs=update_cluster_centers_kwargs,
                                    loss_calculation=loss_calculation,
                                    loss_calculation_kwargs=loss_calculation_kwargs).to_device(device)
-
+    """
     param_dict = [{'params': autoencoder.parameters(),
                    'lr': learning_rate},
                   {'params': [acedec_module.V],
@@ -806,6 +806,13 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
                   # In accordance to the original paper we update the betas 10 times faster
                   {'params': [acedec_module.beta_weights],
                    'lr': learning_rate * 10},
+                  ]
+    """
+    clustering_optimizer_beta_params = clustering_optimizer_params.copy()
+    clustering_optimizer_beta_params["lr"] = clustering_optimizer_beta_params["lr"] * 10
+    param_dict = [dict({'params': autoencoder.parameters()}, **clustering_optimizer_params),
+                  dict({'params': [acedec_module.V]}, **clustering_optimizer_params),
+                  dict({'params': [acedec_module.beta_weights]}, **clustering_optimizer_beta_params)
                   ]
     optimizer = optimizer_class(param_dict)
 
@@ -839,13 +846,15 @@ def _acedec(X, y, n_clusters, V, P, input_centers, batch_size, pretrain_learning
     print("CLUSTER LABELS ", cluster_labels)
     """
     # Recluster
-    print("Recluster")
     if final_reclustering:
         if debug:
             print("Recluster")
-        acedec_module.recluster(y, dataloader=subsampleloader, model=autoencoder, device=device)
+        acedec_module.recluster(y, dataloader=subsampleloader, model=autoencoder, device=device,
+                                optimizer_params=clustering_optimizer_params,
+                                optimizer_class=optimizer_class)
         # Predict labels and transfer other parameters to numpy
-        cluster_labels = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device, use_P=True)
+        cluster_labels = acedec_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device,
+                                                         use_P=True)
         if debug:
             print("Betas after reclustering")
             print(acedec_module.subspace_betas().detach().cpu().numpy())
@@ -926,6 +935,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
             self.device = detect_device()
         self.batch_size = batch_size
         self.pretrain_learning_rate = pretrain_optimizer_params["lr"]
+        self.clustering_optimizer_params = clustering_optimizer_params
         self.clustering_learning_rate = clustering_optimizer_params["lr"]
         self.pretrain_epochs = pretrain_optimizer_params["epochs"]
         self.clustering_epochs = clustering_optimizer_params["epochs"]
@@ -1002,6 +1012,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          max_epochs=self.clustering_epochs,
                                                                                          tolerance_threshold=self.tolerance_threshold,
                                                                                          optimizer_class=self.optimizer_class,
+                                                                                         clustering_optimizer_params=self.clustering_optimizer_params,
                                                                                          loss_fn=self.loss_fn,
                                                                                          degree_of_space_distortion=self.degree_of_space_distortion,
                                                                                          degree_of_space_preservation=self.degree_of_space_preservation,
@@ -1029,7 +1040,7 @@ class ACEDEC(BaseEstimator, ClusterMixin):
                                                                                          final_reclustering=self.final_reclustering,
         )
         # Update class variables
-        self.labels_ = cluster_labels
+        self.labels_ = cluster_labels[:, 0]
         self.cluster_centers_ = cluster_centers
         self.acedec_labels_ = cluster_labels_before_reclustering[:, 0]
         self.V = V
