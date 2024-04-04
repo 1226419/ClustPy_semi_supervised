@@ -373,8 +373,8 @@ class _ENRC_Module(torch.nn.Module):
         print("init_kwargs", init_kwargs)
         print("dataloader.batch_size", dataloader.batch_size)
         print("embedded_rot shape", embedded_rot.shape)
-        from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import enrc_init
-        centers_reclustered, P, new_V, beta_weights = enrc_init(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
+        from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import apply_init_function
+        centers_reclustered, P, new_V, beta_weights = apply_init_function(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
                                                                 max_iter=300, optimizer_params=optimizer_params, optimizer_class=optimizer_class,
                                                                 init=reclustering_strategy, debug=False, init_kwargs=init_kwargs, batch_size=dataloader.batch_size,
                                                                 )
