@@ -11,9 +11,9 @@ from clustpy.deep._data_utils import get_dataloader, augmentation_invariance_che
 from sklearn.utils import check_random_state
 from clustpy.utils.plots import plot_scatter_matrix
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import available_init_strategies
-from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_training_procedure import _enrc
+from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_fitting_procedure import apply_fitting_procedure, available_fitting_strategies
 from clustpy.deep.semisupervised_enrc.helper_functions import enrc_predict_batchwise
-
+from typing import Union, Callable
 
 """
 ===================== ENRC  =====================
@@ -113,7 +113,9 @@ class ENRC(BaseEstimator, ClusterMixin):
                  autoencoder: torch.nn.Module = None, embedding_size: int = 20, init: str = "nrkmeans",
                  device: torch.device = None, scheduler: torch.optim.lr_scheduler = None,
                  scheduler_params: dict = None, init_kwargs: dict = None, init_subsample_size: int = 10000,
-                 random_state: np.random.RandomState = None, custom_dataloaders: tuple = None, augmentation_invariance: bool = False, final_reclustering: bool = True, debug: bool = False):
+                 random_state: np.random.RandomState = None, custom_dataloaders: tuple = None,
+                 augmentation_invariance: bool = False, final_reclustering: bool = True, debug: bool = False,
+                 fit_function: Union[Callable, str] = None, fit_kwargs: dict = None ):
         self.n_clusters = n_clusters.copy()
         self.device = device
         if self.device is None:
@@ -140,14 +142,21 @@ class ENRC(BaseEstimator, ClusterMixin):
         self.augmentation_invariance = augmentation_invariance
         self.final_reclustering = final_reclustering
         self.debug = debug
-
+        self.fit_kwargs = fit_kwargs
         if len(self.n_clusters) < 2:
             raise ValueError(f"n_clusters={n_clusters}, but should be <= 2.")
 
-        if init in available_init_strategies():
+        if callable(init) or (init in available_init_strategies()):
             self.init = init
         else:
             raise ValueError(f"init={init} does not exist, has to be one of {available_init_strategies()}.")
+
+        if callable(fit_function) or (init in available_fitting_strategies()):
+            self.fit_function = fit_function
+        else:
+            raise ValueError(f"{self.fit_function} is not a function, is one of {available_fitting_strategies()} "
+                             f"or is None")
+
         self.input_centers = input_centers
         self.V = V
         self.m = None
@@ -172,35 +181,38 @@ class ENRC(BaseEstimator, ClusterMixin):
             returns the ENRC object
         """
         augmentation_invariance_check(self.augmentation_invariance, self.custom_dataloaders)
+        cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering \
+              = apply_fitting_procedure(X=X,
+                                        n_clusters=self.n_clusters,
+                                        V=self.V,
+                                        P=self.P,
+                                        input_centers=self.input_centers,
+                                        batch_size=self.batch_size,
+                                        pretrain_optimizer_params=self.pretrain_optimizer_params,
+                                        clustering_optimizer_params=self.clustering_optimizer_params,
+                                        pretrain_epochs=self.pretrain_epochs,
+                                        clustering_epochs=self.clustering_epochs,
+                                        tolerance_threshold=self.tolerance_threshold,
+                                        optimizer_class=self.optimizer_class,
+                                        loss_fn=self.loss_fn,
+                                        degree_of_space_distortion=self.degree_of_space_distortion,
+                                        degree_of_space_preservation=self.degree_of_space_preservation,
+                                        autoencoder=self.autoencoder,
+                                        embedding_size=self.embedding_size,
+                                        init=self.init,
+                                        random_state=self.random_state,
+                                        device=self.device,
+                                        scheduler=self.scheduler,
+                                        scheduler_params=self.scheduler_params,
+                                        init_kwargs=self.init_kwargs,
+                                        init_subsample_size=self.init_subsample_size,
+                                        custom_dataloaders=self.custom_dataloaders,
+                                        augmentation_invariance=self.augmentation_invariance,
+                                        final_reclustering=self.final_reclustering,
+                                        debug=self.debug,
+                                        fit_function=self.fit_function,
+                                        fit_kwargs=self.fit_kwargs)
 
-        cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering = _enrc(X=X,
-                                                                                                                            n_clusters=self.n_clusters,
-                                                                                                                            V=self.V,
-                                                                                                                            P=self.P,
-                                                                                                                            input_centers=self.input_centers,
-                                                                                                                            batch_size=self.batch_size,
-                                                                                                                            pretrain_optimizer_params=self.pretrain_optimizer_params,
-                                                                                                                            clustering_optimizer_params=self.clustering_optimizer_params,
-                                                                                                                            pretrain_epochs=self.pretrain_epochs,
-                                                                                                                            clustering_epochs=self.clustering_epochs,
-                                                                                                                            tolerance_threshold=self.tolerance_threshold,
-                                                                                                                            optimizer_class=self.optimizer_class,
-                                                                                                                            loss_fn=self.loss_fn,
-                                                                                                                            degree_of_space_distortion=self.degree_of_space_distortion,
-                                                                                                                            degree_of_space_preservation=self.degree_of_space_preservation,
-                                                                                                                            autoencoder=self.autoencoder,
-                                                                                                                            embedding_size=self.embedding_size,
-                                                                                                                            init=self.init,
-                                                                                                                            random_state=self.random_state,
-                                                                                                                            device=self.device,
-                                                                                                                            scheduler=self.scheduler,
-                                                                                                                            scheduler_params=self.scheduler_params,
-                                                                                                                            init_kwargs=self.init_kwargs,
-                                                                                                                            init_subsample_size=self.init_subsample_size,
-                                                                                                                            custom_dataloaders=self.custom_dataloaders,
-                                                                                                                            augmentation_invariance=self.augmentation_invariance,
-                                                                                                                            final_reclustering=self.final_reclustering,
-                                                                                                                            debug=self.debug)
         # Update class variables
         self.labels_ = cluster_labels
         self.enrc_labels_ = cluster_labels_before_reclustering

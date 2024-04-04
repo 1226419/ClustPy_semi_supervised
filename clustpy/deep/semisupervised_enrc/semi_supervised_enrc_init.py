@@ -21,6 +21,117 @@ def available_init_strategies() -> list:
     return ['nrkmeans', 'random', 'sgd', 'auto', 'subkmeans', 'acedec']
 
 
+def apply_init_function(data: np.ndarray, n_clusters: list, init: str = "auto", rounds: int = 10, input_centers: list = None,
+              P: list = None, V: np.ndarray = None, random_state: np.random.RandomState = None, max_iter: int = 100,
+              optimizer_params: dict = None, optimizer_class: torch.optim.Optimizer = None, batch_size: int = 128,
+              epochs: int = 10, device: torch.device = torch.device("cpu"), debug: bool = True,
+              init_kwargs: dict = None) -> (list, list, np.ndarray, np.ndarray):
+    """
+    Initialization strategy for the ENRC algorithm.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        input data
+    n_clusters : list
+        list of ints, number of clusters for each clustering
+    init : str
+        {'nrkmeans', 'random', 'sgd', 'auto'} or callable. Initialization strategies for parameters cluster_centers, V and beta of ENRC. (default='auto')
+
+        'nrkmeans' : Performs the NrKmeans algorithm to get initial parameters. This strategy is preferred for small data sets,
+        but the orthogonality constraint on V and subsequently for the clustered subspaces can be sometimes to limiting in practice,
+        e.g., if clusterings in the data are not perfectly non-redundant.
+
+        'random' : Same as 'nrkmeans', but max_iter is set to 10, so the performance is faster, but also less optimized, thus more random.
+
+        'sgd' : Initialization strategy based on optimizing ENRC's parameters V and beta in isolation from the autoencoder using a mini-batch gradient descent optimizer.
+        This initialization strategy scales better to large data sets than the 'nrkmeans' option and only constraints V using the reconstruction error (torch.nn.MSELoss),
+        which can be more flexible than the orthogonality constraint of NrKmeans. A problem of the 'sgd' strategy is that it can be less stable for small data sets.
+
+        'auto' : Selects 'sgd' init if data.shape[0] > 100,000 or data.shape[1] > 1,000. For smaller data sets 'nrkmeans' init is used.
+
+        If a callable is passed, it should take arguments data and n_clusters (additional parameters can be provided via the dictionary init_kwargs) and return an initialization (centers, P, V and beta_weights).
+
+    rounds : int
+        number of repetitions of the initialization procedure (default: 10)
+    input_centers : list
+        list of np.ndarray, optional parameter if initial cluster centers want to be set (optional) (default: None)
+    P : list
+        list containing projections for each subspace (optional) (default: None)
+    V : np.ndarray
+        orthogonal rotation matrix (optional) (default: None)
+    random_state : np.random.RandomState
+        random state for reproducible results (default: None)
+    max_iter : int
+        maximum number of iterations of NrKmeans.  Only used for init='nrkmeans' (default: 100)
+    optimizer_params : dict
+        parameters of the optimizer used to optimize V and beta, includes the learning rate. Only used for init='sgd'
+    optimizer_class : torch.optim.Optimizer
+        optimizer for training. If None then torch.optim.Adam will be used. Only used for init='sgd' (default: None)
+    batch_size : int
+        size of the data batches. Only used for init='sgd' (default: 128)
+    epochs : int
+        number of epochs for the actual clustering procedure. Only used for init='sgd' (default: 10)
+    device : torch.device
+        device on which should be trained on. Only used for init='sgd' (default: torch.device('cpu'))
+    debug : bool
+        if True then the cost of each round will be printed (default: True)
+    init_kwargs : dict
+        additional parameters that are used if init is a callable (optional) (default: None)
+    Returns
+    -------
+    tuple : (list, list, np.ndarray, np.ndarray)
+        list of cluster centers for each subspace
+        list containing projections for each subspace
+        orthogonal rotation matrix
+        weights for softmax function to get beta values.
+
+    Raises
+    ----------
+    ValueError : if init variable is passed that is not implemented.
+    """
+    if debug:
+        print("init params")
+        print(init)
+        print(init_kwargs)
+        print(optimizer_params)
+        print(optimizer_class)
+    if init == "nrkmeans" or init == "subkmeans":
+        centers, P, V, beta_weights = nrkmeans_init(data=data, n_clusters=n_clusters, rounds=rounds,
+                                                    input_centers=input_centers, P=P, V=V, random_state=random_state,
+                                                    debug=debug)
+    elif init == "random":
+        centers, P, V, beta_weights = random_nrkmeans_init(data=data, n_clusters=n_clusters, rounds=rounds,
+                                                           input_centers=input_centers, P=P, V=V,
+                                                           random_state=random_state, debug=debug)
+    elif init == "sgd":
+        centers, P, V, beta_weights = sgd_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
+                                               rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
+                                               optimizer_class=optimizer_class, batch_size=batch_size,
+                                               random_state=random_state, device=device, debug=debug)
+    elif init == "acedec":
+        centers, P, V, beta_weights = acedec_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
+                                                  rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
+                                                  optimizer_class=optimizer_class, batch_size=batch_size,
+                                                  random_state=random_state, device=device, debug=debug)
+    elif init == "auto":
+        if data.shape[0] > 100000 or data.shape[1] > 1000:
+            init = "sgd"
+        else:
+            init = "nrkmeans"
+        centers, P, V, beta_weights = apply_init_function(data=data, n_clusters=n_clusters, device=device, init=init,
+                                                rounds=rounds, input_centers=input_centers,
+                                                P=P, V=V, random_state=random_state, max_iter=max_iter,
+                                                optimizer_params=optimizer_params, optimizer_class=optimizer_class,
+                                                epochs=epochs, debug=debug)
+    elif callable(init):
+        if init_kwargs is not None:
+            centers, P, V, beta_weights = init(data, n_clusters, **init_kwargs)
+        else:
+            centers, P, V, beta_weights = init(data, n_clusters)
+    else:
+        raise ValueError(f"init={init} is not implemented.")
+    return centers, P, V, beta_weights
 
 
 def nrkmeans_init(data: np.ndarray, n_clusters: list, rounds: int = 10, max_iter: int = 100, input_centers: list = None,
@@ -413,114 +524,3 @@ def acedec_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batc
     return centers, P, V, beta_weights
 
 
-def enrc_init(data: np.ndarray, n_clusters: list, init: str = "auto", rounds: int = 10, input_centers: list = None,
-              P: list = None, V: np.ndarray = None, random_state: np.random.RandomState = None, max_iter: int = 100,
-              optimizer_params: dict = None, optimizer_class: torch.optim.Optimizer = None, batch_size: int = 128,
-              epochs: int = 10, device: torch.device = torch.device("cpu"), debug: bool = True,
-              init_kwargs: dict = None) -> (list, list, np.ndarray, np.ndarray):
-    """
-    Initialization strategy for the ENRC algorithm.
-
-    Parameters
-    ----------
-    data : np.ndarray
-        input data
-    n_clusters : list
-        list of ints, number of clusters for each clustering
-    init : str
-        {'nrkmeans', 'random', 'sgd', 'auto'} or callable. Initialization strategies for parameters cluster_centers, V and beta of ENRC. (default='auto')
-
-        'nrkmeans' : Performs the NrKmeans algorithm to get initial parameters. This strategy is preferred for small data sets,
-        but the orthogonality constraint on V and subsequently for the clustered subspaces can be sometimes to limiting in practice,
-        e.g., if clusterings in the data are not perfectly non-redundant.
-
-        'random' : Same as 'nrkmeans', but max_iter is set to 10, so the performance is faster, but also less optimized, thus more random.
-
-        'sgd' : Initialization strategy based on optimizing ENRC's parameters V and beta in isolation from the autoencoder using a mini-batch gradient descent optimizer.
-        This initialization strategy scales better to large data sets than the 'nrkmeans' option and only constraints V using the reconstruction error (torch.nn.MSELoss),
-        which can be more flexible than the orthogonality constraint of NrKmeans. A problem of the 'sgd' strategy is that it can be less stable for small data sets.
-
-        'auto' : Selects 'sgd' init if data.shape[0] > 100,000 or data.shape[1] > 1,000. For smaller data sets 'nrkmeans' init is used.
-
-        If a callable is passed, it should take arguments data and n_clusters (additional parameters can be provided via the dictionary init_kwargs) and return an initialization (centers, P, V and beta_weights).
-
-    rounds : int
-        number of repetitions of the initialization procedure (default: 10)
-    input_centers : list
-        list of np.ndarray, optional parameter if initial cluster centers want to be set (optional) (default: None)
-    P : list
-        list containing projections for each subspace (optional) (default: None)
-    V : np.ndarray
-        orthogonal rotation matrix (optional) (default: None)
-    random_state : np.random.RandomState
-        random state for reproducible results (default: None)
-    max_iter : int
-        maximum number of iterations of NrKmeans.  Only used for init='nrkmeans' (default: 100)
-    optimizer_params : dict
-        parameters of the optimizer used to optimize V and beta, includes the learning rate. Only used for init='sgd'
-    optimizer_class : torch.optim.Optimizer
-        optimizer for training. If None then torch.optim.Adam will be used. Only used for init='sgd' (default: None)
-    batch_size : int
-        size of the data batches. Only used for init='sgd' (default: 128)
-    epochs : int
-        number of epochs for the actual clustering procedure. Only used for init='sgd' (default: 10)
-    device : torch.device
-        device on which should be trained on. Only used for init='sgd' (default: torch.device('cpu'))
-    debug : bool
-        if True then the cost of each round will be printed (default: True)
-    init_kwargs : dict
-        additional parameters that are used if init is a callable (optional) (default: None)
-    Returns
-    -------
-    tuple : (list, list, np.ndarray, np.ndarray)
-        list of cluster centers for each subspace
-        list containing projections for each subspace
-        orthogonal rotation matrix
-        weights for softmax function to get beta values.
-
-    Raises
-    ----------
-    ValueError : if init variable is passed that is not implemented.
-    """
-    if debug:
-        print("init params")
-        print(init)
-        print(init_kwargs)
-        print(optimizer_params)
-        print(optimizer_class)
-    if init == "nrkmeans" or init == "subkmeans":
-        centers, P, V, beta_weights = nrkmeans_init(data=data, n_clusters=n_clusters, rounds=rounds,
-                                                    input_centers=input_centers, P=P, V=V, random_state=random_state,
-                                                    debug=debug)
-    elif init == "random":
-        centers, P, V, beta_weights = random_nrkmeans_init(data=data, n_clusters=n_clusters, rounds=rounds,
-                                                           input_centers=input_centers, P=P, V=V,
-                                                           random_state=random_state, debug=debug)
-    elif init == "sgd":
-        centers, P, V, beta_weights = sgd_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
-                                               rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
-                                               optimizer_class=optimizer_class, batch_size=batch_size,
-                                               random_state=random_state, device=device, debug=debug)
-    elif init == "acedec":
-        centers, P, V, beta_weights = acedec_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
-                                                  rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
-                                                  optimizer_class=optimizer_class, batch_size=batch_size,
-                                                  random_state=random_state, device=device, debug=debug)
-    elif init == "auto":
-        if data.shape[0] > 100000 or data.shape[1] > 1000:
-            init = "sgd"
-        else:
-            init = "nrkmeans"
-        centers, P, V, beta_weights = enrc_init(data=data, n_clusters=n_clusters, device=device, init=init,
-                                                rounds=rounds, input_centers=input_centers,
-                                                P=P, V=V, random_state=random_state, max_iter=max_iter,
-                                                optimizer_params=optimizer_params, optimizer_class=optimizer_class,
-                                                epochs=epochs, debug=debug)
-    elif callable(init):
-        if init_kwargs is not None:
-            centers, P, V, beta_weights = init(data, n_clusters, **init_kwargs)
-        else:
-            centers, P, V, beta_weights = init(data, n_clusters)
-    else:
-        raise ValueError(f"init={init} is not implemented.")
-    return centers, P, V, beta_weights
