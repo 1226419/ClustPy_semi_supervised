@@ -25,7 +25,7 @@ def apply_init_function(data: np.ndarray, n_clusters: list, init: str = "auto", 
               P: list = None, V: np.ndarray = None, random_state: np.random.RandomState = None, max_iter: int = 100,
               optimizer_params: dict = None, optimizer_class: torch.optim.Optimizer = None, batch_size: int = 128,
               epochs: int = 10, device: torch.device = torch.device("cpu"), debug: bool = True,
-              init_kwargs: dict = None) -> (list, list, np.ndarray, np.ndarray):
+              init_kwargs: dict = None, clustering_module: torch.nn.Module = _ENRC_Module) -> (list, list, np.ndarray, np.ndarray):
     """
     Initialization strategy for the ENRC algorithm.
 
@@ -108,12 +108,14 @@ def apply_init_function(data: np.ndarray, n_clusters: list, init: str = "auto", 
         centers, P, V, beta_weights = sgd_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
                                                rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
                                                optimizer_class=optimizer_class, batch_size=batch_size,
-                                               random_state=random_state, device=device, debug=debug)
+                                               random_state=random_state, device=device, debug=debug,
+                                               clustering_module=clustering_module)
     elif init == "acedec":
         centers, P, V, beta_weights = acedec_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
                                                   rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
                                                   optimizer_class=optimizer_class, batch_size=batch_size,
-                                                  random_state=random_state, device=device, debug=debug)
+                                                  random_state=random_state, device=device, debug=debug,
+                                                  clustering_module=clustering_module)
     elif init == "auto":
         if data.shape[0] > 100000 or data.shape[1] > 1000:
             init = "sgd"
@@ -123,7 +125,7 @@ def apply_init_function(data: np.ndarray, n_clusters: list, init: str = "auto", 
                                                 rounds=rounds, input_centers=input_centers,
                                                 P=P, V=V, random_state=random_state, max_iter=max_iter,
                                                 optimizer_params=optimizer_params, optimizer_class=optimizer_class,
-                                                epochs=epochs, debug=debug)
+                                                epochs=epochs, debug=debug, clustering_module=clustering_module)
     elif callable(init):
         if init_kwargs is not None:
             centers, P, V, beta_weights = init(data, n_clusters, **init_kwargs)
@@ -253,7 +255,7 @@ def random_nrkmeans_init(data: np.ndarray, n_clusters: list, rounds: int = 10, i
                          input_centers=input_centers, P=P, V=V, random_state=random_state, debug=debug)
 
 
-def _determine_sgd_init_costs(enrc: _ENRC_Module, dataloader: torch.utils.data.DataLoader,
+def _determine_sgd_init_costs(enrc: torch.nn.Module, dataloader: torch.utils.data.DataLoader,
                               loss_fn: torch.nn.modules.loss._Loss, device: torch.device,
                               return_rot: bool = False) -> float:
     """
@@ -261,8 +263,8 @@ def _determine_sgd_init_costs(enrc: _ENRC_Module, dataloader: torch.utils.data.D
 
     Parameters
     ----------
-    enrc : _ENRC_Module
-        The ENRC module
+    enrc : a torch.nn.Module based on _ENRC_Module
+        The module
     dataloader : torch.utils.data.DataLoader
         dataloader to be used for the calculation of the costs
     loss_fn : torch.nn.modules.loss._Loss
@@ -297,8 +299,8 @@ def _determine_sgd_init_costs(enrc: _ENRC_Module, dataloader: torch.utils.data.D
 def sgd_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batch_size: int = 128,
              optimizer_class: torch.optim.Optimizer = None, rounds: int = 2, epochs: int = 10,
              random_state: np.random.RandomState = None, input_centers: list = None, P: list = None,
-             V: np.ndarray = None, device: torch.device = torch.device("cpu"), debug: bool = True) -> (
-        list, list, np.ndarray, np.ndarray):
+             V: np.ndarray = None, device: torch.device = torch.device("cpu"), debug: bool = True,
+             clustering_module: torch.nn.Module = None) -> (list, list, np.ndarray, np.ndarray):
     """
     Initialization strategy based on optimizing ENRC's parameters V and beta in isolation from the autoencoder using a mini-batch gradient descent optimizer.
     This initialization strategy scales better to large data sets than the nrkmeans_init and only constraints V using the reconstruction error (torch.nn.MSELoss),
@@ -353,7 +355,7 @@ def sgd_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batch_s
                                                                P=P, V=V, debug=debug)
 
         # Initialize betas with uniform distribution
-        enrc_module = _ENRC_Module(init_centers, P_init, V_init, beta_init_value=1.0 / len(P_init)).to_device(device)
+        enrc_module = clustering_module(init_centers, P_init, V_init, beta_init_value=1.0 / len(P_init)).to_device(device)
         enrc_module.to_device(device)
         optimizer_beta_params = optimizer_params.copy()
         optimizer_beta_params["lr"] = optimizer_beta_params["lr"] * 10
@@ -396,7 +398,8 @@ def sgd_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batch_s
 def acedec_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batch_size: int = 128,
                 optimizer_class: torch.optim.Optimizer = None, rounds: int = None, epochs: int = 10,
                 random_state: np.random.RandomState = None, input_centers: list = None, P: list = None,
-                V: np.ndarray = None, device: torch.device = torch.device("cpu"), debug: bool = True) -> (
+                V: np.ndarray = None, device: torch.device = torch.device("cpu"), debug: bool = True,
+                clustering_module: torch.nn.Module = None) -> (
         list, list, np.ndarray, np.ndarray):
     """
     Initialization strategy based on optimizing ACeDeC's parameters V and beta in isolation from the autoencoder using a mini-batch gradient descent optimizer.
@@ -469,7 +472,7 @@ def acedec_init(data: np.ndarray, n_clusters: list, optimizer_params: dict, batc
         init_centers = [kmeans.cluster_centers_, data_rot.mean(0).reshape(1, -1)]
 
         # Initialize betas with uniform distribution
-        enrc_module = _ENRC_Module(init_centers, P_init, V_init, beta_init_value=1.0 / len(P_init)).to_device(device)
+        enrc_module = clustering_module(init_centers, P_init, V_init, beta_init_value=1.0 / len(P_init)).to_device(device)
         enrc_module.to_device(device)
 
         optimizer_beta_params = optimizer_params.copy()

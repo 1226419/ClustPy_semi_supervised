@@ -115,7 +115,8 @@ class ENRC(BaseEstimator, ClusterMixin):
                  scheduler_params: dict = None, init_kwargs: dict = None, init_subsample_size: int = 10000,
                  random_state: np.random.RandomState = None, custom_dataloaders: tuple = None,
                  augmentation_invariance: bool = False, final_reclustering: bool = True, debug: bool = False,
-                 fit_function: Union[Callable, str] = None, fit_kwargs: dict = None ):
+                 fit_function: Union[Callable, str] = None, fit_kwargs: dict = None,
+                 clustering_module: torch.nn.Module = None):
         self.n_clusters = n_clusters.copy()
         self.device = device
         if self.device is None:
@@ -143,6 +144,7 @@ class ENRC(BaseEstimator, ClusterMixin):
         self.final_reclustering = final_reclustering
         self.debug = debug
         self.fit_kwargs = fit_kwargs
+        self.clustering_module = clustering_module
         if len(self.n_clusters) < 2:
             raise ValueError(f"n_clusters={n_clusters}, but should be <= 2.")
 
@@ -211,7 +213,8 @@ class ENRC(BaseEstimator, ClusterMixin):
                                         final_reclustering=self.final_reclustering,
                                         debug=self.debug,
                                         fit_function=self.fit_function,
-                                        fit_kwargs=self.fit_kwargs)
+                                        fit_kwargs=self.fit_kwargs,
+                                        clustering_module=self.clustering_module)
 
         # Update class variables
         self.labels_ = cluster_labels

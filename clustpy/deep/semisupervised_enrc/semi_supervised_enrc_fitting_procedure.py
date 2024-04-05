@@ -25,12 +25,15 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                             scheduler: torch.optim.lr_scheduler, scheduler_params: dict,  init_kwargs: dict,
                             init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool,
                             final_reclustering: bool,
-                            debug: bool, fit_function, fit_kwargs: dict) -> (
+                            debug: bool, fit_function, fit_kwargs: dict,
+                            clustering_module: torch.nn.Module = None) -> (
         np.ndarray, list, np.ndarray, list, np.ndarray, list, list, torch.nn.Module):
     if debug:
         print("starting fitting(clustering) procedure")
         print(fit_function)
         print(fit_kwargs)
+    if clustering_module is None:
+        clustering_module = _ENRC_Module
     if fit_function == "enrc" or fit_function == "acedec" or (fit_function is None):
         centers, P, V, beta_weights = enrc_fitting(X=X, n_clusters=n_clusters, V=V, P=P, input_centers=input_centers,
                                                    batch_size=batch_size,
@@ -55,7 +58,8 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                                                    custom_dataloaders=custom_dataloaders,
                                                    augmentation_invariance=augmentation_invariance,
                                                    final_reclustering=final_reclustering,
-                                                   debug=debug)
+                                                   debug=debug,
+                                                   clustering_module=clustering_module)
     elif callable(fit_function):
         if init_kwargs is not None:
             cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering\
@@ -64,7 +68,7 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                                optimizer_class, loss_fn, degree_of_space_distortion, degree_of_space_preservation,
                                autoencoder, embedding_size, init, random_state, device, scheduler, scheduler_params,
                                init_kwargs, init_subsample_size, custom_dataloaders, augmentation_invariance,
-                               final_reclustering, debug, **fit_kwargs)
+                               final_reclustering, debug, clustering_module, **fit_kwargs)
         else:
             cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering\
                 = fit_function(X, n_clusters, V, P, input_centers, batch_size, pretrain_optimizer_params,
@@ -72,7 +76,7 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                                optimizer_class, loss_fn, degree_of_space_distortion, degree_of_space_preservation,
                                autoencoder, embedding_size, init, random_state, device, scheduler, scheduler_params,
                                init_kwargs, init_subsample_size, custom_dataloaders, augmentation_invariance,
-                               final_reclustering, debug)
+                               final_reclustering, debug, clustering_module)
     else:
         raise ValueError(f"init={init} is not implemented.")
     return cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering
@@ -85,7 +89,8 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
           degree_of_space_distortion: float, degree_of_space_preservation: float, autoencoder: torch.nn.Module,
           embedding_size: int, init: str, random_state: np.random.RandomState, device: torch.device,
           scheduler: torch.optim.lr_scheduler, scheduler_params: dict,  init_kwargs: dict,
-          init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool, final_reclustering:bool, debug: bool) -> (
+          init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool, final_reclustering:bool,
+          debug: bool, clustering_module: torch.nn.Module) -> (
         np.ndarray, list, np.ndarray, list, np.ndarray, list, list, torch.nn.Module):
     """
     Start the actual ENRC clustering procedure on the input data set.
@@ -209,9 +214,10 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
                                                   rounds=10, epochs=init_epochs, batch_size=batch_size, debug=debug,
                                                   input_centers=input_centers, P=P, V=V, random_state=random_state,
                                                   max_iter=100, optimizer_params=clustering_optimizer_params,
-                                                  optimizer_class=optimizer_class, init_kwargs=init_kwargs)
+                                                  optimizer_class=optimizer_class, init_kwargs=init_kwargs,
+                                                            clustering_module=clustering_module)
     # Setup ENRC Module
-    enrc_module = _ENRC_Module(input_centers, P, V, degree_of_space_distortion=degree_of_space_distortion,
+    enrc_module = clustering_module(input_centers, P, V, degree_of_space_distortion=degree_of_space_distortion,
                                degree_of_space_preservation=degree_of_space_preservation,
                                beta_weights=beta_weights, augmentation_invariance=augmentation_invariance).to_device(device)
     if debug:

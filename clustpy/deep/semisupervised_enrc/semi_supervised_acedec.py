@@ -104,13 +104,14 @@ class ACeDeC(ENRC):
                  device: torch.device = None, scheduler: torch.optim.lr_scheduler = None,
                  scheduler_params: dict = None, init_kwargs: dict = None, init_subsample_size: int = 10000,
                  random_state: np.random.RandomState = None, custom_dataloaders: tuple = None, augmentation_invariance: bool = False,
-                 final_reclustering: bool = True, debug: bool = False, fit_function: Union[Callable, str] = None):
+                 final_reclustering: bool = True, debug: bool = False, fit_function: Union[Callable, str] = None,
+                 clustering_module: torch.nn.Module = None):
 
         super().__init__([n_clusters, 1], V, P, input_centers,
                  batch_size, pretrain_optimizer_params, clustering_optimizer_params, pretrain_epochs, clustering_epochs,
                  tolerance_threshold, optimizer_class, loss_fn, degree_of_space_distortion, degree_of_space_preservation,
                  autoencoder, embedding_size, init, device, scheduler, scheduler_params, init_kwargs, init_subsample_size,
-                 random_state, custom_dataloaders, augmentation_invariance, final_reclustering, debug, fit_function)
+                 random_state, custom_dataloaders, augmentation_invariance, final_reclustering, debug, fit_function, clustering_module)
 
     def fit(self, X: np.ndarray, y: np.ndarray = None) -> 'ACeDeC':
             """

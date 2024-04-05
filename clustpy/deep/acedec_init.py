@@ -3,6 +3,7 @@ import numpy as np
 from clustpy.deep.enrc import enrc_init, available_init_strategies
 from clustpy.utils.plots import plot_scatter_matrix, plot_2d_data
 
+
 def acedec_init(y, embedded_data, n_clusters, init="auto", rounds=10, input_centers=None, P=None, V=None,
                 random_state=None,
                 max_iter=100, learning_rate=None, optimizer_class=None, batch_size=128, epochs=10,
