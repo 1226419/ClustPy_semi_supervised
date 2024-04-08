@@ -35,7 +35,8 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
     if clustering_module is None:
         clustering_module = _ENRC_Module
     if fit_function == "enrc" or fit_function == "acedec" or (fit_function is None):
-        centers, P, V, beta_weights = enrc_fitting(X=X, n_clusters=n_clusters, V=V, P=P, input_centers=input_centers,
+        cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering \
+            = enrc_fitting(X=X, n_clusters=n_clusters, V=V, P=P, input_centers=input_centers,
                                                    batch_size=batch_size,
                                                    pretrain_optimizer_params=pretrain_optimizer_params,
                                                    clustering_optimizer_params=clustering_optimizer_params,
