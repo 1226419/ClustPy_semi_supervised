@@ -1,18 +1,12 @@
-import os
-import numpy as np
-import torch
+
 from clustpy.data import load_optdigits, load_mnist, load_fmnist, load_usps, load_kmnist, load_cifar10, load_imagenet10, \
     load_imagenet_dog
 from clustpy.deep import detect_device, get_dataloader, DEC, DCN, IDEC, ACeDeC
-from clustpy.deep.autoencoders import FeedforwardAutoencoder, ConvolutionalAutoencoder
-from clustpy.utils import EvaluationDataset, EvaluationAlgorithm, EvaluationMetric, EvaluationAutoencoder, \
-    evaluate_multiple_datasets
+from clustpy.utils import EvaluationAlgorithm, EvaluationMetric
 from clustpy.metrics import unsupervised_clustering_accuracy as acc, \
     information_theoretic_external_cluster_validity_measure as dom
 from sklearn.metrics import normalized_mutual_info_score as nmi, adjusted_mutual_info_score as ami, \
     adjusted_rand_score as ari
-import inspect
-import torchvision
 
 from clustpy_experiments.additional_algos import AEKmeans
 from clustpy_experiments.experiment_learning_rate import experiment_learning_rate
@@ -23,6 +17,7 @@ from clustpy.deep.semisupervised_enrc.semi_supervised_acedec import ACeDeC as My
 
 DOWNLOAD_PATH = None
 SAVE_DIR = "MyBenchmark/"
+
 
 def _get_dataset_loaders():
     datasets = [
