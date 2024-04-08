@@ -15,7 +15,7 @@ from clustpy_experiments.experiment_feedforward_test_train import experiment_fee
 
 from clustpy.deep.semisupervised_enrc.semi_supervised_acedec import ACeDeC as My_ACeDeC
 
-DOWNLOAD_PATH = None
+DOWNLOAD_PATH = "Downloaded_datasets"
 SAVE_DIR = "MyBenchmark/"
 
 
