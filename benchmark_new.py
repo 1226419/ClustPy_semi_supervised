@@ -32,7 +32,7 @@ def _get_dataset_loaders():
     ]
     return datasets
 
-
+"""
 def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, optimizer_class, loss_fn,
                                augmentation=False):
     evaluation_algorithms = [
@@ -41,7 +41,7 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "optimizer_class": optimizer_class,
                              "init_subsample_size": 10000,
                              "clustering_optimizer_params": {"lr": 5e-4}, "loss_fn": loss_fn,
-                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}), """
+                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}),
         EvaluationAlgorithm("AE+KMeans", AEKmeans,
                             {"n_clusters": None, "batch_size": batch_size}),
         EvaluationAlgorithm("DEC", DEC,
@@ -58,7 +58,27 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
                              "clustering_optimizer_params": {"lr": 1e-4}, "loss_fn": loss_fn,
-                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}) """,
+                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}),
+        EvaluationAlgorithm("My_ACeDeC", My_ACeDeC,
+                            {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
+                             "optimizer_class": optimizer_class,
+                             "init_subsample_size": 10000,
+                             "clustering_optimizer_params": {"lr": 5e-4}, "loss_fn": loss_fn,
+                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}),
+
+    ]
+    return evaluation_algorithms
+"""
+
+def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, optimizer_class, loss_fn,
+                               augmentation=False):
+    evaluation_algorithms = [
+        EvaluationAlgorithm("ACeDeC", ACeDeC,
+                            {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
+                             "optimizer_class": optimizer_class,
+                             "init_subsample_size": 10000,
+                             "clustering_optimizer_params": {"lr": 5e-4}, "loss_fn": loss_fn,
+                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}),
         EvaluationAlgorithm("My_ACeDeC", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
