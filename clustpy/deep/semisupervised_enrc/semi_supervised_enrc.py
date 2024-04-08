@@ -182,6 +182,11 @@ class ENRC(BaseEstimator, ClusterMixin):
         self : ENRC
             returns the ENRC object
         """
+        if (y is not None) and (self.init_kwargs is not None):
+            self.init_kwargs["y"] = y
+        elif (y is not None) and (self.init_kwargs is None):
+            self.init_kwargs = {"y": y}
+
         augmentation_invariance_check(self.augmentation_invariance, self.custom_dataloaders)
         cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering \
               = apply_fitting_procedure(X=X,
