@@ -4,6 +4,7 @@ import torch
 
 from clustpy.deep import detect_device, get_dataloader
 from clustpy.deep.autoencoders import ConvolutionalAutoencoder
+from clustpy.data.preprocessing import z_normalization
 from clustpy.utils import EvaluationDataset, EvaluationAutoencoder, evaluate_multiple_datasets
 
 import inspect
@@ -44,16 +45,17 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
         data_name_exp = data_name_orig + "_" + experiment_name
         data_loader_params = inspect.getfullargspec(data_loader).args
         flatten = (ae_class != ConvolutionalAutoencoder and not augmentation)
-        train_subset = {"subset": "train"} if train_test_split else {}
+        train_subset = "train" if train_test_split else "all"
         if augmentation:
             assert flatten == False, "If augmentation is used, flatten must be false"
             # Normalization happens within the augmentation dataloader
-            data, labels = data_loader(flatten=flatten, downloads_path=download_path, **train_subset)
+            data, labels = data_loader(subset=train_subset, return_X_y=True, downloads_path=download_path)
         elif "normalize_channels" in data_loader_params and not train_test_split:
-            data, labels = data_loader(flatten=flatten, normalize_channels=True, downloads_path=download_path,
-                                       **train_subset)
+            data, labels = data_loader(subset=train_subset, return_X_y=True, downloads_path=download_path,
+                                       )
+            data = z_normalization(data)
         else:
-            data, labels = data_loader(flatten=flatten, downloads_path=download_path, **train_subset)
+            data, labels = data_loader(subset=train_subset, return_X_y=True, downloads_path=download_path)
             data_mean = np.mean(data)
             data_std = np.std(data)
             data = _standardize(data, data_mean, data_std)

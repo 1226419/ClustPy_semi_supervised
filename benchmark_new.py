@@ -24,7 +24,7 @@ def _get_dataset_loaders():
         #("Optdigits", load_optdigits),
         #("USPS", load_usps),
         ("MNIST", load_mnist),
-        #("FMNIST", load_fmnist),
+        ("FMNIST", load_fmnist),
         #("KMNIST", load_kmnist),
         #("CIFAR10", load_cifar10),
         #("ImageNet10", load_imagenet10),
