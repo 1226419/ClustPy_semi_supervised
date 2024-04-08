@@ -97,8 +97,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             evaluation_autoencoders.append(eval_autoencoder)
         if augmentation:
             eval_dataset = EvaluationDataset(data_name_exp, data_loader,
-                                             data_loader_params={"flatten": False,
-                                                                 "downloads_path": download_path},
+                                             data_loader_params={"downloads_path": download_path},
                                              iteration_specific_autoencoders=evaluation_autoencoders,
                                              train_test_split=train_test_split,
                                              preprocess_methods=_add_color_channels_and_resize,
@@ -106,7 +105,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
                                                                 "dataset_name": data_name_orig})
         elif "normalize_channels" in data_loader_params and not train_test_split:
             eval_dataset = EvaluationDataset(data_name_exp, data_loader,
-                                             data_loader_params={"normalize_channels": True, "flatten": flatten,
+                                             data_loader_params={"normalize_channels": True,
                                                                  "downloads_path": download_path},
                                              iteration_specific_autoencoders=evaluation_autoencoders,
                                              train_test_split=train_test_split,
@@ -115,7 +114,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
                                                                 "dataset_name": data_name_orig})
         else:
             eval_dataset = EvaluationDataset(data_name_exp, data_loader,
-                                             data_loader_params={"flatten": flatten, "downloads_path": download_path},
+                                             data_loader_params={"downloads_path": download_path},
                                              iteration_specific_autoencoders=evaluation_autoencoders,
                                              train_test_split=train_test_split,
                                              preprocess_methods=[_standardize, _add_color_channels_and_resize],
@@ -131,7 +130,6 @@ def _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch
                 ae_class, other_ae_params, dataset_loaders, get_evaluation_algorithmns_function, evaluation_metrics,
                 save_dir, download_path,
                 augmentation=False, train_test_split=False):
-
     ae_layers = ae_layers.copy()
     ae_layers.append(embedding_size)
     experiment_name = experiment_name + "_" + "_".join(str(x) for x in ae_layers)
@@ -169,14 +167,14 @@ def _get_dataloader_with_augmentation(data: np.ndarray, batch_size: int, flatten
         kernel_size = radias * 2 + 1
         color_jitter = torchvision.transforms.ColorJitter(0.8, 0.8, 0.8, 0.2)
         transform_list = [
-                        torchvision.transforms.ToPILImage(),
-                        torchvision.transforms.RandomResizedCrop(size=_size),
-                        torchvision.transforms.RandomHorizontalFlip(),
-                        torchvision.transforms.RandomApply([color_jitter], p=0.8),
-                        torchvision.transforms.RandomGrayscale(p=0.2),
-                        torchvision.transforms.GaussianBlur(kernel_size=kernel_size),
-                        torchvision.transforms.ToTensor(),
-                        normalize_fn,
+            torchvision.transforms.ToPILImage(),
+            torchvision.transforms.RandomResizedCrop(size=_size),
+            torchvision.transforms.RandomHorizontalFlip(),
+            torchvision.transforms.RandomApply([color_jitter], p=0.8),
+            torchvision.transforms.RandomGrayscale(p=0.2),
+            torchvision.transforms.GaussianBlur(kernel_size=kernel_size),
+            torchvision.transforms.ToTensor(),
+            normalize_fn,
         ]
     else:
         transform_list = [
