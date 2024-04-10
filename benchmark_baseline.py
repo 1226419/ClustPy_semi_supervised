@@ -22,7 +22,7 @@ def _get_dataset_loaders():
 
 def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, optimizer_class, loss_fn,
                                augmentation=False):
-    
+
     scheduler = torch.optim.lr_scheduler.StepLR
     scheduler_params = {"step_size": int(0.2 * n_clustering_epochs), "gamma": 0.5, "verbose": True}
 
@@ -34,7 +34,8 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "clustering_optimizer_params": {"lr": 5e-4}, "loss_fn": loss_fn,
                              "scheduler": scheduler,
                              "scheduler_params": scheduler_params,
-                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}),
+                             "embedding_size": embedding_size, "augmentation_invariance": augmentation,
+                             "final_reclustering": True}),
 
         EvaluationAlgorithm("My_ACeDeC", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
@@ -43,7 +44,8 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "clustering_optimizer_params": {"lr": 5e-4}, "loss_fn": loss_fn,
                              "scheduler": scheduler,
                              "scheduler_params": scheduler_params,
-                             "embedding_size": embedding_size, "augmentation_invariance": augmentation}),
+                             "embedding_size": embedding_size, "augmentation_invariance": augmentation,
+                             "final_reclustering": True}),
 
     ]
     return evaluation_algorithms

@@ -23,7 +23,13 @@ def _standardize(data, mean=None, std=None):
 def _add_color_channels_and_resize(data, conv_used, augmentation, dataset_name):
     if conv_used or augmentation:
         if data.ndim != 4:
-            data = data.reshape(-1, 1, data.shape[1], data.shape[2])
+            if dataset_name in ["MNIST"]:
+                data = data.reshape(-1, 1, 28, 28)
+                data = torch.from_numpy(data).float()
+                padding_fn = torchvision.transforms.Pad([2, 2], fill=0)
+                data = padding_fn(data)
+            else:
+                data = data.reshape(-1, 1, data.shape[1], data.shape[2])
             if conv_used:
                 data = np.tile(data, (1, 3, 1, 1))
         if conv_used:
