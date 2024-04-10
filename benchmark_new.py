@@ -12,6 +12,7 @@ from clustpy_experiments.additional_algos import AEKmeans
 from clustpy_experiments.experiment_learning_rate import experiment_learning_rate
 from clustpy_experiments.experiment_initial_clustering import experiment_initial_clustering
 from clustpy_experiments.experiment_feedforward_test_train import experiment_feedforward_test_train, experiment_feedforward_512_256_128_10
+from clustpy_experiments.experiment_conv_resnet import experiment_convolutional_resnet18
 
 from clustpy.deep.semisupervised_enrc.semi_supervised_acedec import ACeDeC as My_ACeDeC
 
@@ -102,14 +103,19 @@ def _get_evaluation_metrics():
 
 
 if __name__ == "__main__":
+    """
     experiment_feedforward_512_256_128_10(datasets=_get_dataset_loaders(),
                                           algorithms_function=_get_evaluation_algorithms,
                                           metrics=_get_evaluation_metrics(),
                                           save_dir=SAVE_DIR, download_path=DOWNLOAD_PATH)
+    """
     # experiment_feedforward_500_500_2000_10()
     # experiment_feedforward_500_500_2000_10_aug()
     # experiment_embedding_size()
-    # experiment_convolutional_resnet18()
+    experiment_convolutional_resnet18(datasets=_get_dataset_loaders(),
+                                          algorithms_function=_get_evaluation_algorithms,
+                                          metrics=_get_evaluation_metrics(),
+                                          save_dir=SAVE_DIR, download_path=DOWNLOAD_PATH)
     # experiment_convolutional_resnet18_aug()
     # experiment_initial_clustering(save_dir=SAVE_DIR)
     # experiment_learning_rate()

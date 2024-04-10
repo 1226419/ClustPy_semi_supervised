@@ -44,7 +44,7 @@ def _add_color_channels_and_resize(data, conv_used, augmentation, dataset_name):
 def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, experiment_name, n_repetitions, batch_size,
                                                n_pretrain_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
                                                ae_class, other_ae_params, device, save_dir, download_path,
-                                               augmentation=False, train_test_split=False):
+                                               augmentation=False, train_test_split=False, train_labels=True ):
     evaluation_datasets = []
     # Get autoencoders for DC algortihms
     for data_name_orig, data_loader in dataset_loaders:
