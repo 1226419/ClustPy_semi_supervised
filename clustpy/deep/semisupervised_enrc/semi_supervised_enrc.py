@@ -153,10 +153,10 @@ class ENRC(BaseEstimator, ClusterMixin):
         else:
             raise ValueError(f"init={init} does not exist, has to be one of {available_init_strategies()}.")
 
-        if callable(fit_function) or (init in available_fitting_strategies()):
+        if callable(fit_function) or (fit_function in available_fitting_strategies()):
             self.fit_function = fit_function
         else:
-            raise ValueError(f"{self.fit_function} is not a function, is one of {available_fitting_strategies()} "
+            raise ValueError(f"{fit_function} is not a function, is one of {available_fitting_strategies()} "
                              f"or is None")
 
         self.input_centers = input_centers
