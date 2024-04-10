@@ -10,7 +10,7 @@ from clustpy_experiments.experiment_baseline import experiment_baseline
 from clustpy.deep.semisupervised_enrc.semi_supervised_acedec import ACeDeC as My_ACeDeC
 
 DOWNLOAD_PATH = "Downloaded_datasets"
-SAVE_DIR = "MyBenchmark/"
+SAVE_DIR = "MyBenchmark_Baseline/"
 
 
 def _get_dataset_loaders():
@@ -22,8 +22,7 @@ def _get_dataset_loaders():
 
 def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, optimizer_class, loss_fn,
                                augmentation=False):
-    warmup_factor = 0.3
-    warmup_period = int(warmup_factor * n_clustering_epochs)
+    
     scheduler = torch.optim.lr_scheduler.StepLR
     scheduler_params = {"step_size": int(0.2 * n_clustering_epochs), "gamma": 0.5, "verbose": True}
 
