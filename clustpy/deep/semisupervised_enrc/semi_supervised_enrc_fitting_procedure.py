@@ -195,6 +195,9 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
     if init_subsample_size is not None and init_subsample_size > 0 and init_subsample_size < X.shape[0]:
         rand_idx = random_state.choice(X.shape[0], init_subsample_size, replace=False)
         subsampleloader = get_dataloader(X[rand_idx], batch_size=batch_size, shuffle=False, drop_last=False)
+        if "y" in init_kwargs.keys():
+            y_sampled_init_labels = init_kwargs["y"][rand_idx]
+            init_kwargs["y"] = y_sampled_init_labels
     else:
         subsampleloader = testloader
     if debug: print("Setup autoencoder")
