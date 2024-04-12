@@ -503,7 +503,7 @@ def evaluate_multiple_datasets(evaluation_datasets: list, evaluation_algorithms:
 def _get_data_and_labels_from_evaluation_dataset(data_input: np.ndarray, data_loader_params_input: dict,
                                                  labels_input: np.ndarray, train_test_split: np.ndarray,
                                                  labels_train: np.ndarray) -> (
-        np.ndarray, np.ndarray, np.ndarray, np.ndarray):
+        np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray):
     """
     Use the parameters stored in the EvaluationDataset to load the data and the labels.
     If specifies it will also load a distinct test dataset.
@@ -522,7 +522,7 @@ def _get_data_and_labels_from_evaluation_dataset(data_input: np.ndarray, data_lo
         If train_test_split is a boolean and true, the data loader will use the parameter "subset" to load a train and test set. In that case data must be a callable.
         If train_test_split is a list/np.ndarray, the entries specify the indices of the data array that should be used for the train set
     labels_train: np.ndarray
-        labels used for training semisupervised models.
+        labels used for training semisupervised models. some of the labels are set to -1 to symbolise they are unlabeled
 
     Returns
     -------
