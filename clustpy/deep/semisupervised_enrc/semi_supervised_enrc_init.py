@@ -579,7 +579,7 @@ def semi_supervised_acedec_init(data: np.ndarray, n_clusters: list, optimizer_pa
         orthogonal rotation matrix,
         weights for softmax function to get beta values.
     """
-
+    print("semisupervised_init")
     if input_centers is None:
         if int(sum(y)) == len(y) * -1:
             print("No labels available - falling back to unsupervised initialization")
