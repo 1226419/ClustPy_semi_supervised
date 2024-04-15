@@ -17,4 +17,5 @@ def experiment_semi_init_small_feedforward(datasets, algorithms_function, metric
     ae_class = FeedforwardAutoencoder
     _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch_size,
                 n_pretrain_epochs, n_clustering_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
-                ae_class, other_ae_params, datasets, algorithms_function, metrics, save_dir, download_path)
+                ae_class, other_ae_params, datasets, algorithms_function, metrics, save_dir, download_path,
+                train_labels_percent=70)

@@ -6,7 +6,7 @@ from clustpy.deep import detect_device, get_dataloader
 from clustpy.deep.autoencoders import ConvolutionalAutoencoder
 from clustpy.data.preprocessing import z_normalization
 from clustpy.utils import EvaluationDataset, EvaluationAutoencoder, evaluate_multiple_datasets
-
+from sklearn.utils.validation import check_random_state
 import inspect
 import torchvision
 
@@ -44,11 +44,16 @@ def _add_color_channels_and_resize(data, conv_used, augmentation, dataset_name):
 def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, experiment_name, n_repetitions, batch_size,
                                                n_pretrain_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
                                                ae_class, other_ae_params, device, save_dir, download_path,
-                                               augmentation=False, train_test_split=False, train_labels=True ):
+                                               augmentation=False, train_test_split=False,
+                                               train_labels_percent: int = None):
     evaluation_datasets = []
+    if train_labels_percent is None:
+        labels_train = None
     # Get autoencoders for DC algortihms
     for data_name_orig, data_loader in dataset_loaders:
         data_name_exp = data_name_orig + "_" + experiment_name
+        if train_labels_percent is not None:
+            data_name_exp = data_name_orig + "_" + experiment_name + "_" + str(train_labels_percent)
         data_loader_params = inspect.getfullargspec(data_loader).args
         flatten = (ae_class != ConvolutionalAutoencoder and not augmentation)
         train_subset = "train" if train_test_split else "all"
@@ -65,6 +70,16 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             data_mean = np.mean(data)
             data_std = np.std(data)
             data = _standardize(data, data_mean, data_std)
+        if train_labels_percent is not None:
+            random_state = np.random.RandomState() # currently no random state can be given to function #TODO ?
+            #random_state = check_random_state(random_state)
+            # randomly make labels a percentage of labels unlabeled(set label to -1) for training
+            labels_train = np.zeros(labels.shape[0]) - 1
+            rand_idx = random_state.choice(labels.shape[0],
+                                           size=round(train_labels_percent*0.01*len(labels)), replace=False)
+            labels_train[rand_idx] = labels[rand_idx]
+
+
         # Change data format if conv autoencoder is used
         conv_used = ae_class == ConvolutionalAutoencoder
         data = _add_color_channels_and_resize(data, conv_used, augmentation, data_name_orig)
@@ -105,7 +120,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             eval_dataset = EvaluationDataset(data_name_exp, data_loader,
                                              data_loader_params={"downloads_path": download_path},
                                              iteration_specific_autoencoders=evaluation_autoencoders,
-                                             train_test_split=train_test_split,
+                                             train_test_split=train_test_split, labels_train=labels_train,
                                              preprocess_methods=_add_color_channels_and_resize,
                                              preprocess_params={"conv_used": conv_used, "augmentation": augmentation,
                                                                 "dataset_name": data_name_orig})
@@ -114,7 +129,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
                                              data_loader_params={"normalize_channels": True,
                                                                  "downloads_path": download_path},
                                              iteration_specific_autoencoders=evaluation_autoencoders,
-                                             train_test_split=train_test_split,
+                                             train_test_split=train_test_split, labels_train=labels_train,
                                              preprocess_methods=_add_color_channels_and_resize,
                                              preprocess_params={"conv_used": conv_used, "augmentation": augmentation,
                                                                 "dataset_name": data_name_orig})
@@ -122,7 +137,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             eval_dataset = EvaluationDataset(data_name_exp, data_loader,
                                              data_loader_params={"downloads_path": download_path},
                                              iteration_specific_autoencoders=evaluation_autoencoders,
-                                             train_test_split=train_test_split,
+                                             train_test_split=train_test_split, labels_train=labels_train,
                                              preprocess_methods=[_standardize, _add_color_channels_and_resize],
                                              preprocess_params=[{"mean": data_mean, "std": data_std},
                                                                 {"conv_used": conv_used, "augmentation": augmentation,
@@ -135,7 +150,7 @@ def _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch
                 n_pretrain_epochs, n_clustering_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
                 ae_class, other_ae_params, dataset_loaders, get_evaluation_algorithmns_function, evaluation_metrics,
                 save_dir, download_path,
-                augmentation=False, train_test_split=False):
+                augmentation=False, train_test_split=False, train_labels_percent: int = None):
     ae_layers = ae_layers.copy()
     ae_layers.append(embedding_size)
     experiment_name = experiment_name + "_" + "_".join(str(x) for x in ae_layers)
@@ -146,7 +161,8 @@ def _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch
                                                                      optimizer_class, pretrain_optimizer_params,
                                                                      loss_fn, ae_class, other_ae_params,
                                                                      device, download_path, save_dir,
-                                                                     augmentation, train_test_split)
+                                                                     augmentation, train_test_split,
+                                                                     train_labels_percent)
     evaluation_algorithms = get_evaluation_algorithmns_function(n_clustering_epochs, embedding_size, batch_size,
                                                                 optimizer_class, loss_fn, augmentation)
 

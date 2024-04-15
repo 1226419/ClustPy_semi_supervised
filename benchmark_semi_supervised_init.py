@@ -27,7 +27,8 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
     scheduler = torch.optim.lr_scheduler.StepLR
     scheduler_params = {"step_size": int(0.2 * n_clustering_epochs), "gamma": 0.5, "verbose": True}
     init_method = semi_supervised_acedec_init
-    init_kwargs = {"y": labels, "clustering_module": _ENRC_Module, "optimizer_params": {"lr": 1e-3}}
+    init_kwargs = {"y": "use_labels_for_init",
+                   "clustering_module": _ENRC_Module, "optimizer_params": {"lr": 1e-3}}
     evaluation_algorithms = [
         EvaluationAlgorithm("ACeDeC", ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
