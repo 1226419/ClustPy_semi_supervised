@@ -801,6 +801,24 @@ def semi_supervised_acedec_init_simple(data: np.ndarray, n_clusters: list, optim
 
             init_centers = input_centers
             P_init = None # TODO
+            m = None
+            # Get number of subspaces
+            subspaces = len(n_clusters)
+            data_dimensionality = data.shape[1]
+            # Calculate dimensionalities m
+            if m is None and P_init is None:
+                m = [int(data_dimensionality / subspaces)] * subspaces
+                if data_dimensionality % subspaces != 0:
+                    choices = random_state.choice(subspaces, data_dimensionality - np.sum(m), replace=False)
+                    for choice in choices:
+                        m[choice] += 1
+            if P_init is None:
+                possible_projections = list(range(data_dimensionality))
+                P_init = []
+                for dimensionality in m:
+                    choices = random_state.choice(possible_projections, dimensionality, replace=False)
+                    P_init.append(choices)
+                    possible_projections = list(set(possible_projections) - set(choices))
             V_init = np.eye(input_centers.shape[1])
 
 
@@ -860,3 +878,121 @@ def semi_supervised_acedec_init_simple(data: np.ndarray, n_clusters: list, optim
             V = V.detach().cpu().numpy()
 
     return centers, P, V, beta_weights
+
+
+def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, optimizer_params: dict = None, batch_size: int = 128,
+                optimizer_class: torch.optim.Optimizer = None, rounds: int = None, epochs: int = 10,
+                random_state: np.random.RandomState = None, input_centers: list = None, P: list = None,
+                V: np.ndarray = None, device: torch.device = torch.device("cpu"), debug: bool = True,
+                clustering_module: torch.nn.Module = _ENRC_Module, y: np.ndarray = None) -> (
+        list, list, np.ndarray, np.ndarray):
+    """
+    Initialization strategy based on optimizing ACeDeC's parameters V and beta in isolation from the autoencoder using a mini-batch gradient descent optimizer.
+    This initialization strategy scales better to large data sets than the nrkmeans_init and only constraints V using the reconstruction error (torch.nn.MSELoss),
+    which can be more flexible than the orthogonality constraint of NrKmeans. A problem of the sgd_init strategy is that it can be less stable for small data sets.
+
+    Parameters
+    ----------
+    data : np.ndarray
+        input data
+    n_clusters : list
+        list of ints, number of clusters for each clustering
+    optimizer_params : dict
+        parameters of the optimizer used to optimize V and beta, includes the learning rate
+    batch_size : int
+        size of the data batches (default: 128)
+    optimizer_params: dict
+            parameters of the optimizer for the actual clustering procedure, includes the learning rate
+    optimizer_class : torch.optim.Optimizer
+        optimizer for training. If None then torch.optim.Adam will be used (default: None)
+    rounds : int
+        not used here (default: None)
+    epochs : int
+        epochs is automatically set to be close to 20.000 minibatch iterations as in the ACeDeC paper. If this determined value is smaller than the passed epochs, then epochs is used (default: 10)
+    random_state : np.random.RandomState
+        random state for reproducible results (default: None)
+    input_centers : list
+        list of np.ndarray, default=None, optional parameter if initial cluster centers want to be set (optional)
+    P : list
+        list containing projections for each subspace (optional) (default: None)
+    V : np.ndarray
+        orthogonal rotation matrix (optional) (default: None)
+    device : torch.device
+        device on which should be trained on (default: torch.device('cpu'))
+    debug : bool
+        if True then the cost of each round will be printed (default: True)
+
+    Returns
+    -------
+    tuple : (list, list, np.ndarray, np.ndarray)
+        list of cluster centers for each subspace,
+        list containing projections for each subspace,
+        orthogonal rotation matrix,
+        weights for softmax function to get beta values.
+    """
+    print("semisupervised_init simplest")
+    if input_centers is None:
+        if int(sum(y)) == len(y) * -1:
+            print("No labels available - falling back to unsupervised initialization")
+            centers, P, V, beta_weights = acedec_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
+                                                  rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
+                                                  optimizer_class=optimizer_class, batch_size=batch_size,
+                                                  random_state=random_state, device=device, debug=debug,
+                                                  clustering_module=clustering_module)
+        else:
+            print("Labels available - performing supervised initialization simple version")
+            input_centers = []
+            # for subspace_size in n_clusters:
+            #    input_centers.append(np.zeros((subspace_size, embedding_size)))
+            # calculate centers for each subspace using the labels
+            for subspace_size in n_clusters[:-1]:
+                subspace_centers = []
+                labels = np.unique(y)
+                if -1 in labels:
+                    labels = labels[1:]
+                assert len(labels) == subspace_size
+                for label_index in labels:
+                    current_label_mask = np.where(y == label_index)[0]
+                    if current_label_mask.shape[0] == 0:
+                        # TODO: handle this case - initialise randomly
+                        raise ValueError(f"Label {label_index} is not present in the data.")
+                    tmp = data[current_label_mask]
+                    tmp_mean = np.mean(tmp, axis=0)
+                    subspace_centers.append(tmp_mean)
+                subspace_centers = np.array(subspace_centers)
+                input_centers.append(subspace_centers)
+
+            # calculate centers for the noise subspace
+            noice_center = np.mean(data, axis=0)
+            input_centers.append([noice_center])
+
+            # start with labeled initialization
+            if debug: print("Start with random init using the centers from the labels")
+
+            P_init = None # TODO
+            m = None
+            # Get number of subspaces
+            subspaces = len(n_clusters)
+            data_dimensionality = data.shape[1]
+            # Calculate dimensionalities m
+            if m is None and P_init is None:
+                m = [int(data_dimensionality / subspaces)] * subspaces
+                if data_dimensionality % subspaces != 0:
+                    choices = random_state.choice(subspaces, data_dimensionality - np.sum(m), replace=False)
+                    for choice in choices:
+                        m[choice] += 1
+            if P_init is None:
+                possible_projections = list(range(data_dimensionality))
+                P_init = []
+                for dimensionality in m:
+                    choices = random_state.choice(possible_projections, dimensionality, replace=False)
+                    P_init.append(choices)
+                    possible_projections = list(set(possible_projections) - set(choices))
+            V_init = np.eye(input_centers.shape[1])
+            centers = input_centers
+            beta_weights = calculate_beta_weight(data=torch.from_numpy(data).float(), centers=centers, V=V_init, P=P)
+            centers = [centers_i.detach().cpu().numpy() for centers_i in centers]
+            beta_weights = beta_weights.detach().cpu().numpy()
+            V_init = V_init.detach().cpu().numpy()
+
+    return centers, P_init, V_init, beta_weights
