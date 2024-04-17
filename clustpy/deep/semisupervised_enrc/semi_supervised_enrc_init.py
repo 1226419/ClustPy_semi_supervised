@@ -609,11 +609,11 @@ def semi_supervised_acedec_init(data: np.ndarray, n_clusters: list, optimizer_pa
                     tmp_mean = np.mean(tmp, axis=0)
                     subspace_centers.append(tmp_mean)
                 subspace_centers = np.array(subspace_centers)
-                input_centers.append(subspace_centers)
+                input_centers.append(torch.from_numpy(subspace_centers))
 
             # calculate centers for the noise subspace
             noice_center = np.mean(data, axis=0)
-            input_centers.append([noice_center])
+            input_centers.append(torch.from_numpy(np.array([noice_center])))
 
             best = None
             lowest = np.inf
@@ -780,11 +780,11 @@ def semi_supervised_acedec_init_simple(data: np.ndarray, n_clusters: list, optim
                     tmp_mean = np.mean(tmp, axis=0)
                     subspace_centers.append(tmp_mean)
                 subspace_centers = np.array(subspace_centers)
-                input_centers.append(subspace_centers)
+                input_centers.append(torch.from_numpy(subspace_centers))
 
             # calculate centers for the noise subspace
             noice_center = np.mean(data, axis=0)
-            input_centers.append([noice_center])
+            input_centers.append(torch.from_numpy(np.array([noice_center])))
 
             best = None
             lowest = np.inf
@@ -815,12 +815,13 @@ def semi_supervised_acedec_init_simple(data: np.ndarray, n_clusters: list, optim
             if P_init is None:
                 possible_projections = list(range(data_dimensionality))
                 P_init = []
+                if random_state is None:
+                    random_state = np.random.RandomState()
                 for dimensionality in m:
                     choices = random_state.choice(possible_projections, dimensionality, replace=False)
                     P_init.append(choices)
                     possible_projections = list(set(possible_projections) - set(choices))
-            V_init = np.eye(input_centers.shape[1])
-
+            V_init = np.eye(data.shape[1])
 
             # Initialize betas with uniform distribution
             enrc_module = clustering_module(init_centers, P_init, V_init,
@@ -852,7 +853,7 @@ def semi_supervised_acedec_init_simple(data: np.ndarray, n_clusters: list, optim
                             batch_size=batch_size,
                             device=device,
                             debug=debug,
-                            fix_rec_error=True)
+                            fix_rec_error=False)
 
             cost, z_rot = _determine_sgd_init_costs(enrc=enrc_module, dataloader=dataloader,
                                                     loss_fn=torch.nn.MSELoss(),
@@ -876,7 +877,11 @@ def semi_supervised_acedec_init_simple(data: np.ndarray, n_clusters: list, optim
             centers = [centers_i.detach().cpu().numpy() for centers_i in centers]
             beta_weights = beta_weights.detach().cpu().numpy()
             V = V.detach().cpu().numpy()
-
+            print("simple init done")
+            print(centers)
+            print(P)
+            print(V)
+            print(beta_weights)
     return centers, P, V, beta_weights
 
 
@@ -931,6 +936,8 @@ def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, opt
         weights for softmax function to get beta values.
     """
     print("semisupervised_init simplest")
+    if random_state is None:
+        random_state = np.random.RandomState()
     if input_centers is None:
         if int(sum(y)) == len(y) * -1:
             print("No labels available - falling back to unsupervised initialization")
@@ -960,11 +967,11 @@ def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, opt
                     tmp_mean = np.mean(tmp, axis=0)
                     subspace_centers.append(tmp_mean)
                 subspace_centers = np.array(subspace_centers)
-                input_centers.append(subspace_centers)
+                input_centers.append(torch.from_numpy(subspace_centers))
 
             # calculate centers for the noise subspace
             noice_center = np.mean(data, axis=0)
-            input_centers.append([noice_center])
+            input_centers.append(torch.from_numpy(np.array([noice_center])))
 
             # start with labeled initialization
             if debug: print("Start with random init using the centers from the labels")
@@ -988,9 +995,10 @@ def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, opt
                     choices = random_state.choice(possible_projections, dimensionality, replace=False)
                     P_init.append(choices)
                     possible_projections = list(set(possible_projections) - set(choices))
-            V_init = np.eye(input_centers.shape[1])
+            V_init = torch.eye(data.shape[1]).to(device)
             centers = input_centers
-            beta_weights = calculate_beta_weight(data=torch.from_numpy(data).float(), centers=centers, V=V_init, P=P)
+            beta_weights = calculate_beta_weight(data=torch.from_numpy(data).float(), centers=centers,V=V_init, P=P)
+
             centers = [centers_i.detach().cpu().numpy() for centers_i in centers]
             beta_weights = beta_weights.detach().cpu().numpy()
             V_init = V_init.detach().cpu().numpy()
