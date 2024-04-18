@@ -116,7 +116,7 @@ class ENRC(BaseEstimator, ClusterMixin):
                  random_state: np.random.RandomState = None, custom_dataloaders: tuple = None,
                  augmentation_invariance: bool = False, final_reclustering: bool = True, debug: bool = False,
                  fit_function: Union[Callable, str] = None, fit_kwargs: dict = None,
-                 clustering_module: torch.nn.Module = None):
+                 clustering_module: torch.nn.Module = None, reclustering_strategy: [Callable, str, None] = None):
         self.n_clusters = n_clusters.copy()
         self.device = device
         if self.device is None:
@@ -147,7 +147,6 @@ class ENRC(BaseEstimator, ClusterMixin):
         self.clustering_module = clustering_module
         if len(self.n_clusters) < 2:
             raise ValueError(f"n_clusters={n_clusters}, but should be <= 2.")
-
         if callable(init) or (init in available_init_strategies()):
             self.init = init
         else:
@@ -158,7 +157,7 @@ class ENRC(BaseEstimator, ClusterMixin):
         else:
             raise ValueError(f"{fit_function} is not a function, is one of {available_fitting_strategies()} "
                              f"or is None")
-
+        self.reclustering_strategy = reclustering_strategy
         self.input_centers = input_centers
         self.V = V
         self.m = None
@@ -219,7 +218,8 @@ class ENRC(BaseEstimator, ClusterMixin):
                                         debug=self.debug,
                                         fit_function=self.fit_function,
                                         fit_kwargs=self.fit_kwargs,
-                                        clustering_module=self.clustering_module)
+                                        clustering_module=self.clustering_module,
+                                        reclustering_strategy=self.reclustering_strategy)
 
         # Update class variables
         self.labels_ = cluster_labels

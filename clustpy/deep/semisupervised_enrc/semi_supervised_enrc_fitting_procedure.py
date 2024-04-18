@@ -5,6 +5,7 @@ from clustpy.deep._data_utils import get_dataloader
 from clustpy.deep._train_utils import get_trained_autoencoder
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import apply_init_function
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_module import _ENRC_Module
+from typing import Callable, Union
 
 
 def available_fitting_strategies() -> list:
@@ -84,14 +85,15 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
 
 
 def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_centers: list, batch_size: int,
-          pretrain_optimizer_params: dict, clustering_optimizer_params: dict, pretrain_epochs: int, clustering_epochs: int,
-          tolerance_threshold: float,
-          optimizer_class: torch.optim.Optimizer, loss_fn: torch.nn.modules.loss._Loss,
-          degree_of_space_distortion: float, degree_of_space_preservation: float, autoencoder: torch.nn.Module,
-          embedding_size: int, init: str, random_state: np.random.RandomState, device: torch.device,
-          scheduler: torch.optim.lr_scheduler, scheduler_params: dict,  init_kwargs: dict,
-          init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool, final_reclustering:bool,
-          debug: bool, clustering_module: torch.nn.Module) -> (
+              pretrain_optimizer_params: dict, clustering_optimizer_params: dict, pretrain_epochs: int, clustering_epochs: int,
+              tolerance_threshold: float,
+              optimizer_class: torch.optim.Optimizer, loss_fn: torch.nn.modules.loss._Loss,
+              degree_of_space_distortion: float, degree_of_space_preservation: float, autoencoder: torch.nn.Module,
+              embedding_size: int, init: str, random_state: np.random.RandomState, device: torch.device,
+              scheduler: torch.optim.lr_scheduler, scheduler_params: dict,  init_kwargs: dict,
+              init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool, final_reclustering: bool,
+              debug: bool, clustering_module: torch.nn.Module,
+                 reclustering_strategy: Union[Callable, str, None] = None) -> (
         np.ndarray, list, np.ndarray, list, np.ndarray, list, list, torch.nn.Module):
     """
     Start the actual ENRC clustering procedure on the input data set.
@@ -214,11 +216,12 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
     # set init epochs proportional to clustering_epochs
     init_epochs = np.max([10, int(0.2*clustering_epochs)])
     input_centers, P, V, beta_weights = apply_init_function(data=embedded_data, n_clusters=n_clusters, device=device,
-                                                            init=init,
-                                                  rounds=10, epochs=init_epochs, batch_size=batch_size, debug=debug,
-                                                  input_centers=input_centers, P=P, V=V, random_state=random_state,
-                                                  max_iter=100, optimizer_params=clustering_optimizer_params,
-                                                  optimizer_class=optimizer_class, init_kwargs=init_kwargs,
+                                                            init=init, rounds=10,
+                                                            epochs=init_epochs, batch_size=batch_size, debug=debug,
+                                                            input_centers=input_centers, P=P, V=V,
+                                                            random_state=random_state,
+                                                            max_iter=100, optimizer_params=clustering_optimizer_params,
+                                                            optimizer_class=optimizer_class, init_kwargs=init_kwargs,
                                                             clustering_module=clustering_module)
     # Setup ENRC Module
     enrc_module = clustering_module(input_centers, P, V, degree_of_space_distortion=degree_of_space_distortion,
@@ -263,8 +266,10 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
     if final_reclustering:
         if debug:
             print("Recluster")
+        if reclustering_strategy is None:
+            reclustering_strategy = init
         enrc_module.recluster(dataloader=subsampleloader, model=autoencoder, device=device, optimizer_params=clustering_optimizer_params,
-                              optimizer_class=optimizer_class, reclustering_strategy=init, init_kwargs=init_kwargs)
+                              optimizer_class=optimizer_class, reclustering_strategy=reclustering_strategy, init_kwargs=init_kwargs)
         # Predict labels and transfer other parameters to numpy
         cluster_labels = enrc_module.predict_batchwise(model=autoencoder, dataloader=testloader, device=device, use_P=True)
         if debug:
