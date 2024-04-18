@@ -36,6 +36,7 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
         print(fit_kwargs)
     if (clustering_module is None) or (clustering_module == "acedec") or (clustering_module == "enrc"):
         clustering_module = _ENRC_Module
+
     if fit_function == "enrc" or fit_function == "acedec" or (fit_function is None):
         cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering \
             = enrc_fitting(X=X, n_clusters=n_clusters, V=V, P=P, input_centers=input_centers,
@@ -199,7 +200,7 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
     if init_subsample_size is not None and init_subsample_size > 0 and init_subsample_size < X.shape[0]:
         rand_idx = random_state.choice(X.shape[0], init_subsample_size, replace=False)
         subsampleloader = get_dataloader(X[rand_idx], batch_size=batch_size, shuffle=False, drop_last=False)
-        if "y" in init_kwargs.keys():
+        if (init_kwargs is not None) and ("y" in init_kwargs.keys()):
             y_sampled_init_labels = init_kwargs["y"][rand_idx]
             init_kwargs["y"] = y_sampled_init_labels
     else:

@@ -187,6 +187,7 @@ class ENRC(BaseEstimator, ClusterMixin):
             self.init_kwargs = {"y": y}
 
         augmentation_invariance_check(self.augmentation_invariance, self.custom_dataloaders)
+        print("clustering_module", self.clustering_module)
         cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering \
               = apply_fitting_procedure(X=X,
                                         n_clusters=self.n_clusters,
