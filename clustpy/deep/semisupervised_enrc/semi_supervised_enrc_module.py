@@ -55,7 +55,8 @@ class _ENRC_Module(torch.nn.Module):
 
     def __init__(self, centers: list, P: list, V: np.ndarray, beta_init_value: float = 0.9,
                  degree_of_space_distortion: float = 1.0, degree_of_space_preservation: float = 1.0,
-                 center_lr: float = 0.5, rotate_centers: bool = False, beta_weights: np.ndarray = None, augmentation_invariance: bool = False):
+                 center_lr: float = 0.5, rotate_centers: bool = False, beta_weights: np.ndarray = None,
+                 augmentation_invariance: bool = False):
         super().__init__()
 
         self.P = P

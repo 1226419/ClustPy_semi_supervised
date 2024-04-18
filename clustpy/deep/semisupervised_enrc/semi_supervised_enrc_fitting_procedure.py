@@ -27,13 +27,14 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                             init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool,
                             final_reclustering: bool,
                             debug: bool, fit_function, fit_kwargs: dict,
-                            clustering_module: torch.nn.Module = None) -> (
+                            clustering_module: torch.nn.Module = None,
+                            reclustering_strategy: [Callable, str, None] = None) -> (
         np.ndarray, list, np.ndarray, list, np.ndarray, list, list, torch.nn.Module):
     if debug:
         print("starting fitting(clustering) procedure")
         print(fit_function)
         print(fit_kwargs)
-    if clustering_module is None:
+    if (clustering_module is None) or (clustering_module == "acedec") or (clustering_module == "enrc"):
         clustering_module = _ENRC_Module
     if fit_function == "enrc" or fit_function == "acedec" or (fit_function is None):
         cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering \
@@ -61,7 +62,8 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                                                    augmentation_invariance=augmentation_invariance,
                                                    final_reclustering=final_reclustering,
                                                    debug=debug,
-                                                   clustering_module=clustering_module)
+                                                   clustering_module=clustering_module,
+                        reclustering_strategy=reclustering_strategy)
     elif callable(fit_function):
         if init_kwargs is not None:
             cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering\
@@ -70,7 +72,7 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                                optimizer_class, loss_fn, degree_of_space_distortion, degree_of_space_preservation,
                                autoencoder, embedding_size, init, random_state, device, scheduler, scheduler_params,
                                init_kwargs, init_subsample_size, custom_dataloaders, augmentation_invariance,
-                               final_reclustering, debug, clustering_module, **fit_kwargs)
+                               final_reclustering, debug, clustering_module, reclustering_strategy, **fit_kwargs)
         else:
             cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering\
                 = fit_function(X, n_clusters, V, P, input_centers, batch_size, pretrain_optimizer_params,
@@ -78,7 +80,7 @@ def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: l
                                optimizer_class, loss_fn, degree_of_space_distortion, degree_of_space_preservation,
                                autoencoder, embedding_size, init, random_state, device, scheduler, scheduler_params,
                                init_kwargs, init_subsample_size, custom_dataloaders, augmentation_invariance,
-                               final_reclustering, debug, clustering_module)
+                               final_reclustering, debug, clustering_module, reclustering_strategy)
     else:
         raise ValueError(f"init={init} is not implemented.")
     return cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering
