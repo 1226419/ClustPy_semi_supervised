@@ -10,7 +10,7 @@ def experiment_baseline(datasets, algorithms_function, metrics, save_dir, downlo
                                       optimizer_class=torch.optim.Adam,
                                       pretrain_optimizer_params={"lr": 1e-3}, loss_fn=torch.nn.MSELoss(),
                                       other_ae_params={"conv_encoder_name": "resnet18"}):
-    experiment_name = "BASELINE"
+    experiment_name = "BASELINE_conv"
     embedding_size = 10
     ae_layers = [512]
     ae_class = ConvolutionalAutoencoder

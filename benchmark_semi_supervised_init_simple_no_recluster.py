@@ -30,7 +30,7 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
     scheduler_params = {"step_size": int(0.2 * n_clustering_epochs), "gamma": 0.5, "verbose": True}
     init_kwargs = {"clustering_module": _ENRC_Module, "optimizer_params": {"lr": 1e-3}}
     evaluation_algorithms = [
-        EvaluationAlgorithm("My_ACeDeC_init_simplest", My_ACeDeC,
+        EvaluationAlgorithm("My_A_i_simplest", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
                              "init_subsample_size": 10000,
@@ -40,7 +40,7 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "embedding_size": embedding_size, "augmentation_invariance": augmentation,
                              "init": semi_supervised_acedec_init_simplest, "init_kwargs": init_kwargs,
                              "final_reclustering": False}),
-        EvaluationAlgorithm("My_ACeDeC_init_simple", My_ACeDeC,
+        EvaluationAlgorithm("M_A_i_simple", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
                              "init_subsample_size": 10000,
