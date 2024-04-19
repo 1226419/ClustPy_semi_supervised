@@ -52,8 +52,6 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "init": semi_supervised_acedec_init_simple, "init_kwargs": init_kwargs,
                              "final_reclustering": True, "reclustering_strategy": "acedec"}),
 
-
-
         EvaluationAlgorithm("ACeDeC", ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,

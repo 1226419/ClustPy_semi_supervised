@@ -941,7 +941,7 @@ def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, opt
     if input_centers is None:
         if int(sum(y)) == len(y) * -1:
             print("No labels available - falling back to unsupervised initialization")
-            centers, P, V, beta_weights = acedec_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
+            centers, P_init, V_init, beta_weights = acedec_init(data=data, n_clusters=n_clusters, optimizer_params=optimizer_params,
                                                   rounds=rounds, epochs=epochs, input_centers=input_centers, P=P, V=V,
                                                   optimizer_class=optimizer_class, batch_size=batch_size,
                                                   random_state=random_state, device=device, debug=debug,
