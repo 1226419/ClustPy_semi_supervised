@@ -122,7 +122,7 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
             batch_size: int, loss_fn: torch.nn.modules.loss._Loss = torch.nn.MSELoss(),
             device: torch.device = torch.device("cpu"), print_step: int = 5, debug: bool = True,
             scheduler: torch.optim.lr_scheduler = None, fix_rec_error: bool = False,
-            tolerance_threshold: float = None, data: torch.Tensor = None) -> (torch.nn.Module, '_ENRC_Module'):
+            tolerance_threshold: float = None, data: torch.Tensor = None, y: torch.Tensor = None) -> (torch.nn.Module, '_ENRC_Module'):
         """
         Trains ENRC and the autoencoder in place.
 
@@ -164,10 +164,12 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
             trained autoencoder,
             trained enrc module
         """
+
         # Deactivate Batchnorm and dropout
         model.eval()
         model.to(device)
         self.to_device(device)
+        print("y", y)
 
         if trainloader is None and data is not None:
             trainloader = get_dataloader(data, batch_size=batch_size, shuffle=True, drop_last=True)

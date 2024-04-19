@@ -8,86 +8,7 @@ from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_module import _ENRC_M
 from typing import Callable, Union
 
 
-def available_fitting_strategies() -> list:
-    """
-    Returns a list of strings of available fitting strategies for ENRC and ACeDeC.
-    At the moment following strategies are supported: enrc
-    """
-    return ['enrc', 'acedec']
-
-
-def apply_fitting_procedure(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_centers: list,
-                            batch_size: int, pretrain_optimizer_params: dict, clustering_optimizer_params: dict,
-                            pretrain_epochs: int, clustering_epochs: int, tolerance_threshold: float,
-                            optimizer_class: torch.optim.Optimizer, loss_fn: torch.nn.modules.loss._Loss,
-                            degree_of_space_distortion: float, degree_of_space_preservation: float,
-                            autoencoder: torch.nn.Module, embedding_size: int, init: str,
-                            random_state: np.random.RandomState, device: torch.device,
-                            scheduler: torch.optim.lr_scheduler, scheduler_params: dict,  init_kwargs: dict,
-                            init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool,
-                            final_reclustering: bool,
-                            debug: bool, fit_function: Union[Callable, str, None], fit_kwargs: Union[dict, None],
-                            clustering_module: torch.nn.Module = None,
-                            reclustering_strategy: Union[Callable, str, None] = None) -> (
-        np.ndarray, list, np.ndarray, list, np.ndarray, list, list, torch.nn.Module):
-    if debug:
-        print("starting fitting(clustering) procedure")
-        print(fit_function)
-        print(fit_kwargs)
-    if (clustering_module is None) or (clustering_module == "acedec") or (clustering_module == "enrc"):
-        clustering_module = _ENRC_Module
-
-    if fit_function == "enrc" or fit_function == "acedec" or (fit_function is None):
-        cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering \
-            = enrc_fitting(X=X, n_clusters=n_clusters, V=V, P=P, input_centers=input_centers,
-                                                   batch_size=batch_size,
-                                                   pretrain_optimizer_params=pretrain_optimizer_params,
-                                                   clustering_optimizer_params=clustering_optimizer_params,
-                                                   pretrain_epochs=pretrain_epochs,
-                                                   clustering_epochs=clustering_epochs,
-                                                   tolerance_threshold=tolerance_threshold,
-                                                   optimizer_class=optimizer_class,
-                                                   loss_fn=loss_fn,
-                                                   degree_of_space_distortion=degree_of_space_distortion,
-                                                   degree_of_space_preservation=degree_of_space_preservation,
-                                                   autoencoder=autoencoder,
-                                                   embedding_size=embedding_size,
-                                                   init=init,
-                                                   random_state=random_state,
-                                                   device=device,
-                                                   scheduler=scheduler,
-                                                   scheduler_params=scheduler_params,
-                                                   init_kwargs=init_kwargs,
-                                                   init_subsample_size=init_subsample_size,
-                                                   custom_dataloaders=custom_dataloaders,
-                                                   augmentation_invariance=augmentation_invariance,
-                                                   final_reclustering=final_reclustering,
-                                                   debug=debug,
-                                                   clustering_module=clustering_module,
-                        reclustering_strategy=reclustering_strategy)
-    elif callable(fit_function):
-        if fit_kwargs is not None:
-            cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering\
-                = fit_function(X, n_clusters, V, P, input_centers, batch_size, pretrain_optimizer_params,
-                               clustering_optimizer_params, pretrain_epochs, clustering_epochs, tolerance_threshold,
-                               optimizer_class, loss_fn, degree_of_space_distortion, degree_of_space_preservation,
-                               autoencoder, embedding_size, init, random_state, device, scheduler, scheduler_params,
-                               init_kwargs, init_subsample_size, custom_dataloaders, augmentation_invariance,
-                               final_reclustering, debug, clustering_module, reclustering_strategy, **fit_kwargs)
-        else:
-            cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering\
-                = fit_function(X, n_clusters, V, P, input_centers, batch_size, pretrain_optimizer_params,
-                               clustering_optimizer_params, pretrain_epochs, clustering_epochs, tolerance_threshold,
-                               optimizer_class, loss_fn, degree_of_space_distortion, degree_of_space_preservation,
-                               autoencoder, embedding_size, init, random_state, device, scheduler, scheduler_params,
-                               init_kwargs, init_subsample_size, custom_dataloaders, augmentation_invariance,
-                               final_reclustering, debug, clustering_module, reclustering_strategy)
-    else:
-        raise ValueError(f"init={init} is not implemented.")
-    return cluster_labels, cluster_centers, V, m, betas, P, n_clusters, autoencoder, cluster_labels_before_reclustering
-
-
-def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_centers: list, batch_size: int,
+def enrc_fitting_with_labels(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_centers: list, batch_size: int,
               pretrain_optimizer_params: dict, clustering_optimizer_params: dict, pretrain_epochs: int, clustering_epochs: int,
               tolerance_threshold: float,
               optimizer_class: torch.optim.Optimizer, loss_fn: torch.nn.modules.loss._Loss,
@@ -96,7 +17,7 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
               scheduler: torch.optim.lr_scheduler, scheduler_params: dict,  init_kwargs: dict,
               init_subsample_size: int, custom_dataloaders: tuple, augmentation_invariance: bool, final_reclustering: bool,
               debug: bool, clustering_module: torch.nn.Module,
-                 reclustering_strategy: Union[Callable, str, None] = None) -> (
+                 reclustering_strategy: Union[Callable, str, None] = None, y:np.ndarray = None) -> (
         np.ndarray, list, np.ndarray, list, np.ndarray, list, list, torch.nn.Module):
     """
     Start the actual ENRC clustering procedure on the input data set.
@@ -183,8 +104,12 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
 
     # Setup dataloaders
     if custom_dataloaders is None:
-        trainloader = get_dataloader(X, batch_size, True, False)
-        testloader = get_dataloader(X, batch_size, False, False)
+        if y is not None:
+            trainloader = get_dataloader(X, batch_size, True, False, additional_inputs=y)
+            testloader = get_dataloader(X, batch_size, False, False, additional_inputs=y)
+        else:
+            trainloader = get_dataloader(X, batch_size, True, False)
+            testloader = get_dataloader(X, batch_size, False, False)
     else:
         trainloader, testloader = custom_dataloaders
         if debug: print("Custom dataloaders are used, X will be overwritten with testloader return values.")
@@ -226,6 +151,10 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
                                                             max_iter=100, optimizer_params=clustering_optimizer_params,
                                                             optimizer_class=optimizer_class, init_kwargs=init_kwargs,
                                                             clustering_module=clustering_module)
+    if int(sum(y)) == len(y) * -1:
+        print("no labels found in clustering module falling back to enrc clustering module")
+        clustering_module = _ENRC_Module
+        y = None
     # Setup ENRC Module
     enrc_module = clustering_module(input_centers, P, V, degree_of_space_distortion=degree_of_space_distortion,
                                degree_of_space_preservation=degree_of_space_preservation,
@@ -248,17 +177,30 @@ def enrc_fitting(X: np.ndarray, n_clusters: list, V: np.ndarray, P: list, input_
     # Training loop
     if debug:
         print("Start training")
-    enrc_module.fit(trainloader=trainloader,
-                    evalloader=testloader,
-                    max_epochs=clustering_epochs,
-                    optimizer=optimizer,
-                    loss_fn=loss_fn,
-                    batch_size=batch_size,
-                    model=autoencoder,
-                    device=device,
-                    scheduler=scheduler,
-                    tolerance_threshold=tolerance_threshold,
-                    debug=debug)
+    if y is None:
+        enrc_module.fit(trainloader=trainloader,
+                        evalloader=testloader,
+                        max_epochs=clustering_epochs,
+                        optimizer=optimizer,
+                        loss_fn=loss_fn,
+                        batch_size=batch_size,
+                        model=autoencoder,
+                        device=device,
+                        scheduler=scheduler,
+                        tolerance_threshold=tolerance_threshold,
+                        debug=debug)
+    else:
+        enrc_module.fit(trainloader=trainloader,
+                        evalloader=testloader,
+                        max_epochs=clustering_epochs,
+                        optimizer=optimizer,
+                        loss_fn=loss_fn,
+                        batch_size=batch_size,
+                        model=autoencoder,
+                        device=device,
+                        scheduler=scheduler,
+                        tolerance_threshold=tolerance_threshold,
+                        debug=debug, y=y)
 
     if debug:
         print("Betas after training")
