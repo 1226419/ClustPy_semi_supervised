@@ -100,7 +100,41 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
             overwrite_assignments = True
         else:
             overwrite_assignments = False
+        """
+        for i, centers_i in enumerate(self.centers):
+            # handle the cluster spaces - one cluster space for each label
+            if i < len(self.centers) - 1:
+                assert len(centers_i) > 1, "Each cluster space should have more than one cluster"
+                # getting the distances to the cluster centers and weigh them by the betas
+                weighted_squared_diff = squared_euclidean_distance(tensor1=z_rot, tensor2=centers_i.detach(),
+                                                                   weights=subspace_betas[i, :])
+                weighted_squared_diff /= z_rot.shape[0]
+                assignments = weighted_squared_diff.detach().argmin(1)
 
+                current_labels = batch_labels
+                if current_labels.ndim > 1:
+                    current_labels = batch_labels[:, i]
+                # get a mask that is 1 if the current_label value is -1 and 0 otherwise
+                current_labels_mask = (current_labels != -1).int()
+                # replace assignments values with current_labels values where current_labels_mask is 1
+                # that means if we have a label we use the label assignment instead of the closest cluster assignment
+                assignments = assignments * (1 - current_labels_mask) + current_labels * current_labels_mask
+                one_hot_mask = int_to_one_hot(assignments, centers_i.shape[0])
+                weighted_squared_diff_masked = weighted_squared_diff * one_hot_mask
+                subspace_losses += weighted_squared_diff_masked.sum()
+                assignment_matrix_dict[i] = one_hot_mask
+            # Handle the noise subspace
+            else:
+                assert len(centers_i) == 1, "Noise subspace should only have one cluster"
+
+                weighted_squared_diff = squared_euclidean_distance(tensor1=z_rot, tensor2=centers_i.detach(),
+                                                                   weights=subspace_betas[i, :])
+                weighted_squared_diff /= z_rot.shape[0]
+                subspace_losses += weighted_squared_diff.sum()
+                one_hot_mask = torch.ones([weighted_squared_diff.shape[0], 1], dtype=torch.float,
+                                          device=weighted_squared_diff.device)
+                assignment_matrix_dict[i] = one_hot_mask
+        """
         for i, centers_i in enumerate(self.centers):
             weighted_squared_diff = squared_euclidean_distance(z_rot, centers_i.detach(), weights=subspace_betas[i, :])
             weighted_squared_diff /= z_rot.shape[0]
@@ -116,6 +150,8 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
 
         subspace_losses = subspace_losses / subspace_betas.shape[0]
         return subspace_losses, z_rot, z_rot_back, assignment_matrix_dict
+
+
 
     def fit(self, trainloader: torch.utils.data.DataLoader, evalloader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, max_epochs: int, model: torch.nn.Module,
@@ -189,14 +225,14 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
         labels_old = None
         for epoch_i in range(max_epochs):
             for batch in trainloader:
-                print("BATCH")
+                #print("BATCH")
                 if self.augmentation_invariance:
                     batch_data_aug = batch[1].to(device)
                     batch_data = batch[2].to(device)
                 else:
                     batch_data = batch[1].to(device)
                 batch_label_data = batch[-1].to(device)
-                print("batch_label_data", batch_label_data)
+                #print("batch_label_data", batch_label_data)
                 assert batch_label_data.shape != batch_data.shape, "no label data was passed from dataloader"
 
                 z = model.encode(batch_data)
