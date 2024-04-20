@@ -11,6 +11,7 @@ from clustpy.alternative.nrkmeans import _get_total_cost_function
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_module import _ENRC_Module
 from clustpy.deep.semisupervised_enrc.helper_functions import _IdentityAutoencoder
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init_betas import calculate_beta_weight
+from scipy.spatial.distance import cdist
 
 
 def available_init_strategies() -> list:
@@ -591,25 +592,8 @@ def semi_supervised_acedec_init(data: np.ndarray, n_clusters: list, optimizer_pa
         else:
             print("Labels available - performing supervised initialization")
             input_centers = []
-            # for subspace_size in n_clusters:
-            #    input_centers.append(np.zeros((subspace_size, embedding_size)))
             # calculate centers for each subspace using the labels
-            for subspace_size in n_clusters[:-1]:
-                subspace_centers = []
-                labels = np.unique(y)
-                if -1 in labels:
-                    labels = labels[1:]
-                assert len(labels) == subspace_size
-                for label_index in labels:
-                    current_label_mask = np.where(y == label_index)[0]
-                    if current_label_mask.shape[0] == 0:
-                        # TODO: handle this case - initialise randomly
-                        raise ValueError(f"Label {label_index} is not present in the data.")
-                    tmp = data[current_label_mask]
-                    tmp_mean = np.mean(tmp, axis=0)
-                    subspace_centers.append(tmp_mean)
-                subspace_centers = np.array(subspace_centers)
-                input_centers.append(torch.from_numpy(subspace_centers))
+            input_centers = calculate_centers_from_labels(y, data, n_clusters, input_centers)
 
             # calculate centers for the noise subspace
             noice_center = np.mean(data, axis=0)
@@ -762,26 +746,8 @@ def semi_supervised_acedec_init_simple(data: np.ndarray, n_clusters: list, optim
         else:
             print("Labels available - performing supervised initialization simple version")
             input_centers = []
-            # for subspace_size in n_clusters:
-            #    input_centers.append(np.zeros((subspace_size, embedding_size)))
             # calculate centers for each subspace using the labels
-            for subspace_size in n_clusters[:-1]:
-                subspace_centers = []
-                labels = np.unique(y)
-                if -1 in labels:
-                    labels = labels[1:]
-                assert len(labels) == subspace_size
-                for label_index in labels:
-                    current_label_mask = np.where(y == label_index)[0]
-                    if current_label_mask.shape[0] == 0:
-                        # TODO: handle this case - initialise randomly
-                        raise ValueError(f"Label {label_index} is not present in the data.")
-                    tmp = data[current_label_mask]
-                    tmp_mean = np.mean(tmp, axis=0)
-                    subspace_centers.append(tmp_mean)
-                subspace_centers = np.array(subspace_centers)
-                input_centers.append(torch.from_numpy(subspace_centers))
-
+            input_centers = calculate_centers_from_labels(y, data, n_clusters, input_centers)
             # calculate centers for the noise subspace
             noice_center = np.mean(data, axis=0)
             input_centers.append(torch.from_numpy(np.array([noice_center])))
@@ -949,25 +915,9 @@ def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, opt
         else:
             print("Labels available - performing supervised initialization simple version")
             input_centers = []
-            # for subspace_size in n_clusters:
-            #    input_centers.append(np.zeros((subspace_size, embedding_size)))
+
             # calculate centers for each subspace using the labels
-            for subspace_size in n_clusters[:-1]:
-                subspace_centers = []
-                labels = np.unique(y)
-                if -1 in labels:
-                    labels = labels[1:]
-                assert len(labels) == subspace_size
-                for label_index in labels:
-                    current_label_mask = np.where(y == label_index)[0]
-                    if current_label_mask.shape[0] == 0:
-                        # TODO: handle this case - initialise randomly
-                        raise ValueError(f"Label {label_index} is not present in the data.")
-                    tmp = data[current_label_mask]
-                    tmp_mean = np.mean(tmp, axis=0)
-                    subspace_centers.append(tmp_mean)
-                subspace_centers = np.array(subspace_centers)
-                input_centers.append(torch.from_numpy(subspace_centers))
+            input_centers = calculate_centers_from_labels(y, data, n_clusters, input_centers)
 
             # calculate centers for the noise subspace
             noice_center = np.mean(data, axis=0)
@@ -976,7 +926,7 @@ def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, opt
             # start with labeled initialization
             if debug: print("Start with random init using the centers from the labels")
 
-            P_init = None # TODO
+            P_init = None
             m = None
             # Get number of subspaces
             subspaces = len(n_clusters)
@@ -1004,3 +954,32 @@ def semi_supervised_acedec_init_simplest(data: np.ndarray, n_clusters: list, opt
             V_init = V_init.detach().cpu().numpy()
 
     return centers, P_init, V_init, beta_weights
+
+
+def calculate_centers_from_labels(y, data, n_clusters: list, input_centers: list):
+    for subspace_size in n_clusters[:-1]:
+        subspace_centers = []
+        labels = np.unique(y)
+        if -1 in labels:
+            labels = labels[1:]
+        for label_index in labels:
+            current_label_mask = np.where(y == label_index)[0]
+            tmp = data[current_label_mask]
+            tmp_mean = np.mean(tmp, axis=0)
+            subspace_centers.append(tmp_mean)
+        subspace_centers = np.array(subspace_centers)
+        print(subspace_centers.shape)
+        nr_cluster_without_label = subspace_size - len(labels)
+        for i in range(nr_cluster_without_label):
+            print("not all labels occur in label data "
+                  "-> find unlabeled point in data that has the highest minimum distance "
+                  "to all cluster_centers and set as new initial cluster center")
+            current_label_mask = np.where(y == -1)[0]
+            tmp = data[current_label_mask]
+            distance_matrix = cdist(tmp, subspace_centers)
+            min_distances = np.min(distance_matrix, axis=1)
+            row_index = np.argmax(min_distances)
+            row_with_highest_min_distance = tmp[row_index]
+            subspace_centers = np.vstack((subspace_centers, row_with_highest_min_distance))
+        input_centers.append(torch.from_numpy(subspace_centers))
+    return input_centers
