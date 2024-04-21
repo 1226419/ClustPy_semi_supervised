@@ -70,7 +70,8 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
                  degree_of_space_distortion, degree_of_space_preservation,
                  center_lr, rotate_centers, beta_weights, augmentation_invariance)
 
-    def forward(self, z: torch.Tensor, assignment_matrix_dict: dict = None) -> (torch.Tensor, torch.Tensor, torch.Tensor, dict):
+    def forward(self, z: torch.Tensor, assignment_matrix_dict: dict = None, batch_label_data: torch.Tensor = None,
+                epoch_i: int = None) -> (torch.Tensor, torch.Tensor, torch.Tensor, dict):
         """
         Calculates the k-means loss and cluster assignments for each clustering.
 
@@ -80,6 +81,11 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
             embedded input data point, can also be a mini-batch of embedded points
         assignment_matrix_dict : dict
             dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments (default: None)
+        batch_label_data : torch.Tensor
+            labeled_data of the current data points, can also be a mini-batch of embedded points
+        epoch_i : int
+            current epoch that calls the forward function
+
 
         Returns
         -------
@@ -100,41 +106,7 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
             overwrite_assignments = True
         else:
             overwrite_assignments = False
-        """
-        for i, centers_i in enumerate(self.centers):
-            # handle the cluster spaces - one cluster space for each label
-            if i < len(self.centers) - 1:
-                assert len(centers_i) > 1, "Each cluster space should have more than one cluster"
-                # getting the distances to the cluster centers and weigh them by the betas
-                weighted_squared_diff = squared_euclidean_distance(tensor1=z_rot, tensor2=centers_i.detach(),
-                                                                   weights=subspace_betas[i, :])
-                weighted_squared_diff /= z_rot.shape[0]
-                assignments = weighted_squared_diff.detach().argmin(1)
 
-                current_labels = batch_labels
-                if current_labels.ndim > 1:
-                    current_labels = batch_labels[:, i]
-                # get a mask that is 1 if the current_label value is -1 and 0 otherwise
-                current_labels_mask = (current_labels != -1).int()
-                # replace assignments values with current_labels values where current_labels_mask is 1
-                # that means if we have a label we use the label assignment instead of the closest cluster assignment
-                assignments = assignments * (1 - current_labels_mask) + current_labels * current_labels_mask
-                one_hot_mask = int_to_one_hot(assignments, centers_i.shape[0])
-                weighted_squared_diff_masked = weighted_squared_diff * one_hot_mask
-                subspace_losses += weighted_squared_diff_masked.sum()
-                assignment_matrix_dict[i] = one_hot_mask
-            # Handle the noise subspace
-            else:
-                assert len(centers_i) == 1, "Noise subspace should only have one cluster"
-
-                weighted_squared_diff = squared_euclidean_distance(tensor1=z_rot, tensor2=centers_i.detach(),
-                                                                   weights=subspace_betas[i, :])
-                weighted_squared_diff /= z_rot.shape[0]
-                subspace_losses += weighted_squared_diff.sum()
-                one_hot_mask = torch.ones([weighted_squared_diff.shape[0], 1], dtype=torch.float,
-                                          device=weighted_squared_diff.device)
-                assignment_matrix_dict[i] = one_hot_mask
-        """
         for i, centers_i in enumerate(self.centers):
             weighted_squared_diff = squared_euclidean_distance(z_rot, centers_i.detach(), weights=subspace_betas[i, :])
             weighted_squared_diff /= z_rot.shape[0]
@@ -145,13 +117,31 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
                 assignment_matrix_dict[i] = one_hot_mask
             else:
                 one_hot_mask = assignment_matrix_dict[i]
+
+            if (batch_label_data is not None) and (len(centers_i) > 1):
+                # find which label belongs to which cluster center -> for now we just force the centers to get the right
+                # ordering as well -> lets see what happens if we use unlabeled init
+                """
+                print("hola")
+                detached_weighted_sq_diff = weighted_squared_diff.detach()
+                current_labels_mask = (batch_label_data != -1).int()
+                labeled_weigthed_sq_diff = detached_weighted_sq_diff[current_labels_mask == 1]
+                only_labeld_labels = batch_label_data[current_labels_mask == 1]
+                only_labeld_labels_one_hot = int_to_one_hot(only_labeld_labels, centers_i.shape[0])
+                awhat = labeled_weigthed_sq_diff * only_labeld_labels_one_hot
+                """
+                # assign all labeld points to their correct cluster center even if it is not the closest.
+                # alternative version -> only penalise them slightly
+                # alternative version -> in the beginning assign them all to the correct one later be less strict, allow flexibility..
+                current_labels_mask = (batch_label_data != -1).int()
+                only_labeld_labels = batch_label_data[current_labels_mask == 1]
+                only_labeld_labels_one_hot = int_to_one_hot(only_labeld_labels, centers_i.shape[0])
+                one_hot_mask[current_labels_mask == 1] = only_labeld_labels_one_hot
             weighted_squared_diff_masked = weighted_squared_diff * one_hot_mask
             subspace_losses += weighted_squared_diff_masked.sum()
 
         subspace_losses = subspace_losses / subspace_betas.shape[0]
         return subspace_losses, z_rot, z_rot_back, assignment_matrix_dict
-
-
 
     def fit(self, trainloader: torch.utils.data.DataLoader, evalloader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, max_epochs: int, model: torch.nn.Module,
@@ -225,18 +215,18 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
         labels_old = None
         for epoch_i in range(max_epochs):
             for batch in trainloader:
-                #print("BATCH")
                 if self.augmentation_invariance:
                     batch_data_aug = batch[1].to(device)
                     batch_data = batch[2].to(device)
                 else:
                     batch_data = batch[1].to(device)
                 batch_label_data = batch[-1].to(device)
-                #print("batch_label_data", batch_label_data)
+
                 assert batch_label_data.shape != batch_data.shape, "no label data was passed from dataloader"
 
                 z = model.encode(batch_data)
-                subspace_loss, z_rot, z_rot_back, assignment_matrix_dict = self(z)
+                subspace_loss, z_rot, z_rot_back, assignment_matrix_dict = self(z, batch_label_data=batch_label_data,
+                                                                                epoch_i=epoch_i)
                 reconstruction = model.decode(z_rot_back)
                 rec_loss = loss_fn(reconstruction, batch_data)
 
@@ -299,7 +289,7 @@ class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
         return model, self
 
 
-class _Label_Loss_Module(torch.nn.Module):
+class _Label_Loss_Module_based_on_ENRC_delayed(_ENRC_Module):
     """
     The ENRC torch.nn.Module.
 
@@ -347,187 +337,12 @@ class _Label_Loss_Module(torch.nn.Module):
     def __init__(self, centers: list, P: list, V: np.ndarray, beta_init_value: float = 0.9,
                  degree_of_space_distortion: float = 1.0, degree_of_space_preservation: float = 1.0,
                  center_lr: float = 0.5, rotate_centers: bool = False, beta_weights: np.ndarray = None, augmentation_invariance: bool = False):
-        super().__init__()
+        super().__init__(centers, P, V, beta_init_value,
+                 degree_of_space_distortion, degree_of_space_preservation,
+                 center_lr, rotate_centers, beta_weights, augmentation_invariance)
 
-        self.P = P
-        self.m = [len(P_i) for P_i in self.P]
-        if beta_weights is None:
-            beta_weights = beta_weights_init(self.P, n_dims=centers[0].shape[1], high_value=beta_init_value)
-        else:
-            beta_weights = torch.tensor(beta_weights).float()
-        self.beta_weights = torch.nn.Parameter(beta_weights, requires_grad=True)
-        self.V = torch.nn.Parameter(torch.tensor(V, dtype=torch.float), requires_grad=True)
-        self.degree_of_space_distortion = degree_of_space_distortion
-        self.degree_of_space_preservation = degree_of_space_preservation
-
-        # Center specific initializations
-        if rotate_centers:
-            centers = [np.matmul(centers_sub, V) for centers_sub in centers]
-        self.centers = [torch.tensor(centers_sub, dtype=torch.float32) for centers_sub in centers]
-        if not (0 <= center_lr <= 1):
-            raise ValueError(f"center_lr={center_lr}, but has to be in [0,1].")
-        self.center_lr = center_lr
-        self.lonely_centers_count = []
-        self.mask_sum = []
-        for centers_i in self.centers:
-            self.lonely_centers_count.append(np.zeros((centers_i.shape[0], 1)).astype(int))
-            self.mask_sum.append(torch.zeros((centers_i.shape[0], 1)))
-        self.reinit_threshold = 1
-        self.augmentation_invariance = augmentation_invariance
-
-    def to_device(self, device: torch.device) -> '_ENRC_Module':
-        """
-        Loads all ENRC parameters to device that are needed during the training and prediction (including the learnable parameters).
-        This function is preferred over the to(device) function.
-
-        Parameters
-        ----------
-        device : torch.device
-            device to be trained on
-
-        Returns
-        -------
-        self : _ENRC_Module
-            this instance of the ENRC_Module
-        """
-        self.to(device)
-        self.centers = [c_i.to(device) for c_i in self.centers]
-        self.mask_sum = [i.to(device) for i in self.mask_sum]
-        return self
-
-    def subspace_betas(self) -> torch.Tensor:
-        """
-        Returns a len(P) x d matrix with softmax weights, where d is the number of dimensions of the embedded space, indicating
-        which dimensions belongs to which clustering.
-
-        Returns
-        -------
-        self : torch.Tensor
-            the dimension assignments
-        """
-        dimension_assignments = torch.nn.functional.softmax(self.beta_weights, dim=0)
-        return dimension_assignments
-
-    def get_P(self) -> list:
-        """
-        Converts the soft beta weights back to hard assignments P and returns them as a list.
-
-        Returns
-        -------
-        P : list
-            list containing indices for projections for each clustering
-        """
-        P = _get_P(betas=self.subspace_betas().detach().cpu(), centers=self.centers)
-        return P
-
-    def rotate(self, z: torch.Tensor) -> torch.Tensor:
-        """
-        Rotate the embedded data ponint z using the orthogonal rotation matrix V.
-
-        Parameters
-        ----------
-        z : torch.Tensor
-            embedded data point, can also be a mini-batch of points
-
-        Returns
-        -------
-        z_rot : torch.Tensor
-            the rotated embedded data point
-        """
-        z_rot = _rotate(z, self.V)
-        return z_rot
-
-    def rotate_back(self, z_rot: torch.Tensor) -> torch.Tensor:
-        """
-        Rotate a rotated embedded data point back to its original state.
-
-        Parameters
-        ----------
-        z_rot : torch.Tensor
-            rotated and embedded data point, can also be a mini-batch of points
-
-        Returns
-        -------
-        z : torch.Tensor
-            the back-rotated embedded data point
-        """
-        z = _rotate_back(z_rot, self.V)
-        return z
-
-    def rotation_loss(self) -> torch.Tensor:
-        """
-        Computes how much the rotation matrix self.V diverges from an orthogonal matrix by calculating |V^T V - I|.
-        For an orthogonal matrix this difference is 0, as V^T V=I.
-
-        Returns
-        -------
-        rotation_loss : torch.Tensor
-            the average absolute difference between V^T times V - the identity matrix I.
-        """
-        ident = torch.matmul(self.V.t(), self.V).detach().cpu()
-        rotation_loss = (ident - torch.eye(n=ident.shape[0])).abs().mean()
-        return rotation_loss
-
-    def update_center(self, data: torch.Tensor, one_hot_mask: torch.Tensor, subspace_id: int) -> None:
-        """
-        Inplace update of centers of a clusterings in subspace=subspace_id in a mini-batch fashion.
-
-        Parameters
-        ----------
-        data : torch.Tensor
-            data points, can also be a mini-batch of points
-        one_hot_mask : torch.Tensor
-            one hot encoded matrix of cluster assignments
-        subspace_id : int
-            integer which indicates which subspace the cluster to be updated are in
-
-        Raises
-        ----------
-        ValueError: If None values are encountered.
-        """
-        if self.centers[subspace_id].shape[0] == 1:
-            # Shared space update with only one cluster
-            self.centers[subspace_id] = self.centers[subspace_id] * 0.5 + data.mean(0).unsqueeze(0) * 0.5
-        else:
-
-            batch_cluster_sums = (data.unsqueeze(1) * one_hot_mask.unsqueeze(2)).sum(0)
-            mask_sum = one_hot_mask.sum(0).unsqueeze(1)
-            if (mask_sum == 0).sum().int().item() != 0:
-                idx = (mask_sum == 0).nonzero()[:, 0].detach().cpu()
-                self.lonely_centers_count[subspace_id][idx] += 1
-
-            # In case mask sum is zero batch cluster sum is also zero so we can add a small constant to mask sum and center_lr
-            # Avoid division by a small number
-            mask_sum += 1e-8
-            # Use weighted average
-            nonzero_mask = (mask_sum.squeeze(1) != 0)
-            self.mask_sum[subspace_id][nonzero_mask] = self.center_lr * mask_sum[nonzero_mask] + (1 - self.center_lr) * \
-                                                       self.mask_sum[subspace_id][nonzero_mask]
-
-            per_center_lr = 1.0 / (1 + self.mask_sum[subspace_id][nonzero_mask])
-            self.centers[subspace_id] = (1.0 - per_center_lr) * self.centers[subspace_id][
-                nonzero_mask] + per_center_lr * batch_cluster_sums[nonzero_mask] / mask_sum[nonzero_mask]
-            if torch.isnan(self.centers[subspace_id]).sum() > 0:
-                raise ValueError(
-                    f"Found nan values\n self.centers[subspace_id]: {self.centers[subspace_id]}\n per_center_lr: {per_center_lr}\n self.mask_sum[subspace_id]: {self.mask_sum[subspace_id]}\n ")
-
-    def update_centers(self, z_rot: torch.Tensor, assignment_matrix_dict: dict) -> None:
-        """
-        Inplace update of all centers in all clusterings in a mini-batch fashion.
-
-        Parameters
-        ----------
-        z_rot : torch.Tensor
-            rotated data point, can also be a mini-batch of points
-        assignment_matrix_dict : dict
-            dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments
-        """
-        for subspace_i in range(len(self.centers)):
-            self.update_center(z_rot.detach(),
-                               assignment_matrix_dict[subspace_i],
-                               subspace_id=subspace_i)
-
-    def forward(self, z: torch.Tensor, assignment_matrix_dict: dict = None) -> (torch.Tensor, torch.Tensor, torch.Tensor, dict):
+    def forward(self, z: torch.Tensor, assignment_matrix_dict: dict = None, batch_label_data: torch.Tensor = None,
+                epoch_i: int = None) -> (torch.Tensor, torch.Tensor, torch.Tensor, dict):
         """
         Calculates the k-means loss and cluster assignments for each clustering.
 
@@ -537,6 +352,11 @@ class _Label_Loss_Module(torch.nn.Module):
             embedded input data point, can also be a mini-batch of embedded points
         assignment_matrix_dict : dict
             dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments (default: None)
+        batch_label_data : torch.Tensor
+            labeled_data of the current data points, can also be a mini-batch of embedded points
+        epoch_i : int
+            current epoch that calls the forward function
+
 
         Returns
         -------
@@ -568,125 +388,38 @@ class _Label_Loss_Module(torch.nn.Module):
                 assignment_matrix_dict[i] = one_hot_mask
             else:
                 one_hot_mask = assignment_matrix_dict[i]
+
+            if (batch_label_data is not None) and (len(centers_i) > 1):
+                # find which label belongs to which cluster center -> for now we just force the centers to get the right
+                # ordering as well -> lets see what happens if we use unlabeled init
+                """
+                print("hola")
+                detached_weighted_sq_diff = weighted_squared_diff.detach()
+                current_labels_mask = (batch_label_data != -1).int()
+                labeled_weigthed_sq_diff = detached_weighted_sq_diff[current_labels_mask == 1]
+                only_labeld_labels = batch_label_data[current_labels_mask == 1]
+                only_labeld_labels_one_hot = int_to_one_hot(only_labeld_labels, centers_i.shape[0])
+                awhat = labeled_weigthed_sq_diff * only_labeld_labels_one_hot
+                """
+                # assign all labeld points to their correct cluster center even if it is not the closest.
+                # alternative version -> only penalise them slightly
+                # alternative version -> in the beginning assign them all to the correct one later be less strict, allow flexibility..
+                current_labels_mask = (batch_label_data != -1).int()
+                only_labeld_labels = batch_label_data[current_labels_mask == 1]
+                only_labeld_labels_one_hot = int_to_one_hot(only_labeld_labels, centers_i.shape[0])
+                one_hot_mask[current_labels_mask == 1] = only_labeld_labels_one_hot
             weighted_squared_diff_masked = weighted_squared_diff * one_hot_mask
             subspace_losses += weighted_squared_diff_masked.sum()
 
         subspace_losses = subspace_losses / subspace_betas.shape[0]
         return subspace_losses, z_rot, z_rot_back, assignment_matrix_dict
 
-    def predict(self, z: torch.Tensor, use_P: bool = False) -> np.ndarray:
-        """
-        Predicts the labels for each clustering of an input z.
-
-        Parameters
-        ----------
-        z : torch.Tensor
-            embedded input data point, can also be a mini-batch of embedded points
-        use_P: bool
-            if True then P will be used to hard select the dimensions for each clustering, else the soft beta weights are used (default: False)
-
-        Returns
-        -------
-        predicted_labels : np.ndarray
-            n x c matrix, where n is the number of data points in z and c is the number of clusterings.
-        """
-        predicted_labels = enrc_predict(z=z, V=self.V, centers=self.centers, subspace_betas=self.subspace_betas(),
-                                        use_P=use_P)
-        return predicted_labels
-
-    def predict_batchwise(self, model: torch.nn.Module, dataloader: torch.utils.data.DataLoader,
-                          device: torch.device = torch.device("cpu"), use_P: bool = False) -> np.ndarray:
-        """
-        Predicts the labels for each clustering of a dataloader in a mini-batch manner.
-
-        Parameters
-        ----------
-        model : torch.nn.Module
-            the input model for encoding the data
-        dataloader : torch.utils.data.DataLoader
-            dataloader to be used for prediction
-        device : torch.device
-            device to be predicted on (default: torch.device('cpu'))
-        use_P: bool
-            if True then P will be used to hard select the dimensions for each clustering, else the soft beta weights are used (default: False)
-
-        Returns
-        -------
-        predicted_labels : np.ndarray
-            n x c matrix, where n is the number of data points in z and c is the number of clusterings.
-        """
-        predicted_labels = enrc_predict_batchwise(V=self.V, centers=self.centers, model=model, dataloader=dataloader,
-                                                  subspace_betas=self.subspace_betas(), device=device, use_P=use_P)
-        return predicted_labels
-
-    def recluster(self, dataloader: torch.utils.data.DataLoader, model: torch.nn.Module, optimizer_params: dict, optimizer_class: torch.optim.Optimizer = None,
-                  device: torch.device = torch.device('cpu'), rounds: int = 1, reclustering_strategy="auto", init_kwargs: dict = None) -> None:
-        """
-        Recluster ENRC inplace using NrKMeans or SGD (depending on the data set size, see init='auto' for details).
-        Can lead to improved and more stable performance.
-        Updates self.P, self.beta_weights, self.V and self.centers.
-
-        Parameters
-        ----------
-        dataloader : torch.utils.data.DataLoader
-            dataloader to be used for prediction
-        model : torch.nn.Module
-            the input model for encoding the data
-        optimizer_params: dict
-            parameters of the optimizer for the actual clustering procedure, includes the learning rate
-        optimizer_class : torch.optim.Optimizer
-            optimizer for training. If None then torch.optim.Adam will be used (default: None)
-        device : torch.device
-            device to be predicted on (default: torch.device('cpu'))
-        rounds : int
-            number of repetitions of the reclustering procedure (default: 1)
-        reclustering_strategy : string
-            choose which initialization strategy should be used. Has to be one of 'nrkmeans', 'random' or 'sgd' (default: 'nrkmeans')
-        init_kwargs : dict
-            additional parameters that are used if reclustering_strategy is a callable (optional) (default: None)
-        """
-
-        # Extract parameters
-        V = self.V.detach().cpu().numpy()
-        n_clusters = [c.shape[0] for c in self.centers]
-
-        # Encode data
-        embedded_data = encode_batchwise(dataloader, model, device)
-        embedded_rot = np.matmul(embedded_data, V)
-
-        # Apply reclustering in the rotated space, because V does not have to be orthogonal, so it could learn a mapping that is not recoverable by nrkmeans.
-        print("reclustering values")
-        print("n_clusters", n_clusters)
-        print("rounds", rounds)
-        print("optimizer_params", optimizer_params)
-        print("optimizer_class", optimizer_class)
-        print("reclustering_strategy", reclustering_strategy)
-        print("init_kwargs", init_kwargs)
-        print("dataloader.batch_size", dataloader.batch_size)
-        print("embedded_rot shape", embedded_rot.shape)
-        from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import apply_init_function
-        centers_reclustered, P, new_V, beta_weights = apply_init_function(data=embedded_rot, n_clusters=n_clusters, rounds=rounds,
-                                                                max_iter=300, optimizer_params=optimizer_params, optimizer_class=optimizer_class,
-                                                                init=reclustering_strategy, debug=False, init_kwargs=init_kwargs, batch_size=dataloader.batch_size,
-                                                                )
-
-        # Update V, because we applied the reclustering in the rotated space
-        new_V = np.matmul(V, new_V)
-
-        # Assign reclustered parameters
-        self.P = P
-        self.m = [len(P_i) for P_i in self.P]
-        self.beta_weights = torch.nn.Parameter(torch.from_numpy(beta_weights).float(), requires_grad=True)
-        self.V = torch.nn.Parameter(torch.tensor(new_V, dtype=torch.float), requires_grad=True)
-        self.centers = [torch.tensor(centers_sub, dtype=torch.float32) for centers_sub in centers_reclustered]
-        self.to_device(device)
-
     def fit(self, trainloader: torch.utils.data.DataLoader, evalloader: torch.utils.data.DataLoader,
             optimizer: torch.optim.Optimizer, max_epochs: int, model: torch.nn.Module,
             batch_size: int, loss_fn: torch.nn.modules.loss._Loss = torch.nn.MSELoss(),
             device: torch.device = torch.device("cpu"), print_step: int = 5, debug: bool = True,
             scheduler: torch.optim.lr_scheduler = None, fix_rec_error: bool = False,
-            tolerance_threshold: float = None, data : torch.Tensor = None) -> (torch.nn.Module, '_ENRC_Module'):
+            tolerance_threshold: float = None, data: torch.Tensor = None, y: torch.Tensor = None) -> (torch.nn.Module, '_ENRC_Module'):
         """
         Trains ENRC and the autoencoder in place.
 
@@ -728,10 +461,12 @@ class _Label_Loss_Module(torch.nn.Module):
             trained autoencoder,
             trained enrc module
         """
+
         # Deactivate Batchnorm and dropout
         model.eval()
         model.to(device)
         self.to_device(device)
+        print("y", y)
 
         if trainloader is None and data is not None:
             trainloader = get_dataloader(data, batch_size=batch_size, shuffle=True, drop_last=True)
@@ -756,9 +491,13 @@ class _Label_Loss_Module(torch.nn.Module):
                     batch_data = batch[2].to(device)
                 else:
                     batch_data = batch[1].to(device)
+                batch_label_data = batch[-1].to(device)
+
+                assert batch_label_data.shape != batch_data.shape, "no label data was passed from dataloader"
 
                 z = model.encode(batch_data)
-                subspace_loss, z_rot, z_rot_back, assignment_matrix_dict = self(z)
+                subspace_loss, z_rot, z_rot_back, assignment_matrix_dict = self(z, batch_label_data=batch_label_data,
+                                                                                epoch_i=epoch_i)
                 reconstruction = model.decode(z_rot_back)
                 rec_loss = loss_fn(reconstruction, batch_data)
 
@@ -819,4 +558,3 @@ class _Label_Loss_Module(torch.nn.Module):
         self.P = self.get_P()
         self.m = [len(P_i) for P_i in self.P]
         return model, self
-

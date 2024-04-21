@@ -150,7 +150,7 @@ def enrc_fitting_with_labels(X: np.ndarray, n_clusters: list, V: np.ndarray, P: 
                                                             random_state=random_state,
                                                             max_iter=100, optimizer_params=clustering_optimizer_params,
                                                             optimizer_class=optimizer_class, init_kwargs=init_kwargs,
-                                                            clustering_module=clustering_module)
+                                                            )
     if int(sum(y)) == len(y) * -1:
         print("no labels found in clustering module falling back to enrc clustering module")
         clustering_module = _ENRC_Module
