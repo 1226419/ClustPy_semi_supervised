@@ -11,7 +11,7 @@ def experiment_semi_init_small_feedforward(datasets, algorithms_function, metric
                                           optimizer_class=torch.optim.Adam,
                                           pretrain_optimizer_params={"lr": 1e-3}, loss_fn=torch.nn.MSELoss(),
                                           other_ae_params={}):
-    experiment_name = "semisupervised_init_small_ff"
+    experiment_name = "semi_small_ff"
     embedding_size = 10
     ae_layers = [512, 256, 128]
     ae_class = FeedforwardAutoencoder
@@ -27,7 +27,7 @@ def experiment_semi_init_small_feedforward_multiple_label_percent(datasets, algo
                                           optimizer_class=torch.optim.Adam,
                                           pretrain_optimizer_params={"lr": 1e-3}, loss_fn=torch.nn.MSELoss(),
                                           other_ae_params={}):
-    experiment_base_name = "semisupervised_init_small_ff_labels"
+    experiment_base_name = "semi_small_ff_labels"
     embedding_size = 10
     ae_layers = [512, 256, 128]
     ae_class = FeedforwardAutoencoder
