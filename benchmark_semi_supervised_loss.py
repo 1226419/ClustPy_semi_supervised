@@ -2,7 +2,7 @@ import torch
 from clustpy.data import load_mnist
 from clustpy.deep import ACeDeC
 from clustpy.utils import EvaluationAlgorithm, EvaluationMetric
-
+from clustpy.metrics import unsupervised_clustering_accuracy as acc
 from sklearn.metrics import normalized_mutual_info_score as nmi, adjusted_rand_score as ari
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import (semi_supervised_acedec_init,
                                                                         semi_supervised_acedec_init_simple,
@@ -34,16 +34,15 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
     scheduler_params = {"step_size": int(0.2 * n_clustering_epochs), "gamma": 0.5, "verbose": True}
     init_kwargs = {"clustering_module": _ENRC_Module, "optimizer_params": {"lr": 1e-3}}
     evaluation_algorithms = [
-        EvaluationAlgorithm("My_A_loss", My_ACeDeC,
+        EvaluationAlgorithm("ACeDeC", ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
                              "init_subsample_size": 10000,
                              "clustering_optimizer_params": {"lr": 5e-4}, "loss_fn": loss_fn,
                              "scheduler": scheduler,
-                             "scheduler_params": scheduler_params, "init_kwargs": init_kwargs,
+                             "scheduler_params": scheduler_params,
                              "embedding_size": embedding_size, "augmentation_invariance": augmentation,
-                             "final_reclustering": True, "clustering_module": clustering_module,
-                             "fit_function": fit_function}),
+                             "final_reclustering": True}),
 
         EvaluationAlgorithm("My_A_loss_simplest_init", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
@@ -58,15 +57,18 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "fit_function": fit_function,
                              "reclustering_strategy": "acedec"}, ),
 
-        EvaluationAlgorithm("ACeDeC", ACeDeC,
+        EvaluationAlgorithm("My_A_loss", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
                              "init_subsample_size": 10000,
                              "clustering_optimizer_params": {"lr": 5e-4}, "loss_fn": loss_fn,
                              "scheduler": scheduler,
-                             "scheduler_params": scheduler_params,
+                             "scheduler_params": scheduler_params, "init_kwargs": init_kwargs,
                              "embedding_size": embedding_size, "augmentation_invariance": augmentation,
-                             "final_reclustering": True}),
+                             "final_reclustering": True, "clustering_module": clustering_module,
+                             "fit_function": fit_function}),
+
+
 
 
     ]
@@ -77,6 +79,7 @@ def _get_evaluation_metrics():
     evaluation_metrics = [
         EvaluationMetric("NMI", nmi),
         EvaluationMetric("ARI", ari),
+        EvaluationMetric("ACC", acc),
     ]
     return evaluation_metrics
 

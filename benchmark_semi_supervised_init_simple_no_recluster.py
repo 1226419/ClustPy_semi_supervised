@@ -2,7 +2,7 @@ import torch
 from clustpy.data import load_mnist
 from clustpy.deep import ACeDeC
 from clustpy.utils import EvaluationAlgorithm, EvaluationMetric
-
+from clustpy.metrics import unsupervised_clustering_accuracy as acc
 from sklearn.metrics import normalized_mutual_info_score as nmi, adjusted_rand_score as ari
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import (semi_supervised_acedec_init,
                                                                         semi_supervised_acedec_init_simple,
@@ -72,6 +72,7 @@ def _get_evaluation_metrics():
     evaluation_metrics = [
         EvaluationMetric("NMI", nmi),
         EvaluationMetric("ARI", ari),
+        EvaluationMetric("ACC", acc),
     ]
     return evaluation_metrics
 

@@ -5,7 +5,7 @@ from clustpy.utils import EvaluationAlgorithm, EvaluationMetric
 
 from sklearn.metrics import normalized_mutual_info_score as nmi, adjusted_rand_score as ari
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import semi_supervised_acedec_init
-
+from clustpy.metrics import unsupervised_clustering_accuracy as acc
 from clustpy_experiments.experiment_semisupervised_acedec_init import experiment_semi_init_small_feedforward
 from clustpy.deep.semisupervised_enrc.semi_supervised_acedec import ACeDeC as My_ACeDeC
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_module import _ENRC_Module
@@ -58,6 +58,7 @@ def _get_evaluation_metrics():
     evaluation_metrics = [
         EvaluationMetric("NMI", nmi),
         EvaluationMetric("ARI", ari),
+        EvaluationMetric("ACC", acc),
     ]
     return evaluation_metrics
 
