@@ -649,10 +649,12 @@ def evaluation_df_to_latex_table(df: pd.DataFrame, output_path: str, use_std: bo
         for j, d in enumerate(datasets):
             # Check if underscore in dataset name
             if d is not None:
-                d = d.replace("_", "\\_")
+                if os.name != "nt":
+                    d = d.replace("_", "\\_")
             for i, m in enumerate(metrics):
                 # Check if underscore in metric name
-                m = m.replace("_", "\\_")
+                if os.name != "nt":
+                    m = m.replace("_", "\\_")
                 # Check if a higher value is better for this metric
                 metric_is_higher_better = (m != "runtime") if higher_is_better is None else higher_is_better[i]
                 # Write name of dataset and metric
@@ -677,7 +679,8 @@ def evaluation_df_to_latex_table(df: pd.DataFrame, output_path: str, use_std: bo
                 all_values_sorted = np.unique(all_values)  # automatically sorted
                 for k, a in enumerate(algorithms):
                     # Check if underscore in algorithm name
-                    a = a.replace("_", "\\_")
+                    if os.name != "nt":
+                        a = a.replace("_", "\\_")
                     mean_value = all_values[k]
                     # If standard deviation is contained in the dataframe, information will be added
                     if use_std and std_contained:
