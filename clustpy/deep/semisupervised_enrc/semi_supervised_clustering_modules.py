@@ -17,6 +17,13 @@ from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_reclustering_reinit i
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init_betas import beta_weights_init
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_module import _ENRC_Module
 
+from sklearn.svm import SVC
+from sklearn.semi_supervised import LabelSpreading, SelfTrainingClassifier
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+
 
 class _Label_Loss_Module_based_on_ENRC(_ENRC_Module):
     """
@@ -745,6 +752,285 @@ class _Label_Cluster_Assignment_Module(_ENRC_Module):
 
                 z = model.encode(batch_data)
                 subspace_loss, z_rot, z_rot_back, assignment_matrix_dict = self(z)
+                reconstruction = model.decode(z_rot_back)
+                rec_loss = loss_fn(reconstruction, batch_data)
+
+                if self.augmentation_invariance:
+                    z_aug = model.encode(batch_data_aug)
+                    # reuse assignments
+                    subspace_loss_aug, _, z_rot_back_aug, _ = self(z_aug, assignment_matrix_dict=assignment_matrix_dict)
+                    reconstruction_aug = model.decode(z_rot_back_aug)
+                    rec_loss_aug = loss_fn(reconstruction_aug, batch_data_aug)
+                    rec_loss = (rec_loss + rec_loss_aug) / 2
+                    subspace_loss = (subspace_loss + subspace_loss_aug) / 2
+
+                if fix_rec_error:
+                    rec_weight = rec_loss.item()/init_rec_loss + subspace_loss.item()/rec_loss.item()
+                    if rec_weight < 1:
+                        rec_weight = 1.0
+                    rec_loss *= rec_weight
+
+                summed_loss = self.degree_of_space_distortion * subspace_loss + self.degree_of_space_preservation * rec_loss
+                optimizer.zero_grad()
+                summed_loss.backward()
+                optimizer.step()
+
+                # Update Assignments and Centroids on GPU
+                with torch.no_grad():
+                    self.update_centers(z_rot, assignment_matrix_dict)
+                # Check if clusters have to be reinitialized
+                for subspace_i in range(len(self.centers)):
+                    reinit_centers(enrc=self, subspace_id=subspace_i, dataloader=trainloader, model=model,
+                                   n_samples=512, kmeans_steps=10, debug=debug)
+
+                # Increase reinit_threshold over time
+                self.reinit_threshold = int(np.sqrt(i + 1))
+
+                i += 1
+            if (epoch_i - 1) % print_step == 0 or epoch_i == (max_epochs - 1):
+                with torch.no_grad():
+                    # Rotation loss is calculated to check if its deviation from an orthogonal matrix
+                    rotation_loss = self.rotation_loss()
+                    if debug:
+                        print(f"Epoch {epoch_i}/{max_epochs - 1}: summed_loss: {summed_loss.item():.4f}, subspace_losses: {subspace_loss.item():.4f}, rec_loss: {rec_loss.item():.4f}, rotation_loss: {rotation_loss.item():.4f}")
+
+            if scheduler is not None:
+                scheduler.step()
+
+            if tolerance_threshold is not None and tolerance_threshold > 0:
+                # Check if labels have changed
+                labels_new = self.predict_batchwise(model=model, dataloader=evalloader, device=device, use_P=True)
+                if _are_labels_equal(labels_new=labels_new, labels_old=labels_old, threshold=tolerance_threshold):
+                    # training has converged
+                    if debug:
+                        print("Clustering has converged")
+                    break
+                else:
+                    labels_old = labels_new.copy()
+
+        # Extract P and m
+        self.P = self.get_P()
+        self.m = [len(P_i) for P_i in self.P]
+        return model, self
+
+
+class _SelfTraining_SVC_ENRC(_ENRC_Module):
+    """
+    The ENRC torch.nn.Module.
+
+    Parameters
+    ----------
+    centers : list
+        list containing the cluster centers for each clustering
+    P : list
+        list containing projections for each clustering
+    V : np.ndarray
+        orthogonal rotation matrix
+    beta_init_value : float
+        initial values of beta weights. Is ignored if beta_weights is not None (default: 0.9)
+    degree_of_space_distortion : float
+        weight of the cluster loss term. The higher it is set the more the embedded space will be shaped to the assumed cluster structure (default: 1.0)
+    degree_of_space_preservation : float
+        weight of regularization loss term, e.g., reconstruction loss (default: 1.0)
+    center_lr : float
+        weight for updating the centers via mini-batch k-means. Has to be set between 0 and 1. If set to 1.0 than only the mini-batch centroid will be used,
+        neglecting the past state and if set to 0 then no update is happening (default: 0.5)
+    rotate_centers : bool
+        if True then centers are multiplied with V before they are used, because ENRC assumes that the centers lie already in the V-rotated space (default: False)
+    beta_weights : np.ndarray
+        initial beta weights for the softmax (optional). If not None, then beta_init_value will be ignored (default: None)
+    augmentation_invariance : bool
+        If True, augmented samples provided in will be used to learn
+        cluster assignments that are invariant to the augmentation transformations (default: False)
+
+    Attributes
+    ----------
+    lonely_centers_count : list
+        list of np.ndarrays, count indicating how often a center in a clustering has not received any updates, because no points were assigned to it.
+        The lonely_centers_count of a center is reset if it has been reinitialized.
+    mask_sum : list
+        list of torch.tensors, contains the average number of points assigned to each cluster in each clustering over the training.
+    reinit_threshold : int
+        threshold that indicates when a cluster should be reinitialized. Starts with 1 and increases during training with int(np.sqrt(i+1)), where i is the number of mini-batch iterations.
+    augmentation_invariance : bool (default: False)
+
+    Raises
+    ----------
+    ValueError : if center_lr is not in [0,1]
+    """
+
+    def __init__(self, centers: list, P: list, V: np.ndarray, beta_init_value: float = 0.9,
+                 degree_of_space_distortion: float = 1.0, degree_of_space_preservation: float = 1.0,
+                 center_lr: float = 0.5, rotate_centers: bool = False, beta_weights: np.ndarray = None,
+                 augmentation_invariance: bool = False, classifier: SelfTrainingClassifier = SelfTrainingClassifier,
+                 classifier_kwargs: dict = None):
+        super().__init__(centers, P, V, beta_init_value,
+                 degree_of_space_distortion, degree_of_space_preservation,
+                 center_lr, rotate_centers, beta_weights, augmentation_invariance)
+        if (classifier_kwargs is None) or ("base_estimator" not in classifier_kwargs.keys()):
+            self.base_estimator = SVC(kernel="rbf", gamma=0.5, probability=True)
+            # self.base_estimator = LogisticRegression()
+        else:
+            self.base_estimator = classifier_kwargs["base_estimator"]
+        self.classifier = classifier(**classifier_kwargs)
+
+
+    def forward(self, z: torch.Tensor, assignment_matrix_dict: dict = None, batch_label_data: torch.Tensor = None,
+                epoch_i: int = None) -> (torch.Tensor, torch.Tensor, torch.Tensor, dict):
+        """
+        Calculates the k-means loss and cluster assignments for each clustering.
+
+        Parameters
+        ----------
+        z : torch.Tensor
+            embedded input data point, can also be a mini-batch of embedded points
+        assignment_matrix_dict : dict
+            dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments (default: None)
+        batch_label_data : torch.Tensor
+            labeled_data of the current data points, can also be a mini-batch of embedded points
+        epoch_i : int
+            current epoch that calls the forward function
+
+
+        Returns
+        -------
+        tuple : (torch.Tensor, torch.Tensor, torch.Tensor, dict)
+            averaged sum of all k-means losses for each clustering,
+            the rotated embedded point,
+            the back rotated embedded point,
+            dict of torch.tensors, contains for each i^th clustering a one hot encoded matrix of cluster assignments
+        """
+        z_rot = self.rotate(z)
+        z_rot_back = self.rotate_back(z_rot)
+
+        subspace_betas = self.subspace_betas()
+        subspace_losses = 0
+
+        if assignment_matrix_dict is None:
+            assignment_matrix_dict = {}
+            overwrite_assignments = True
+        else:
+            overwrite_assignments = False
+
+        for i, centers_i in enumerate(self.centers):
+            weighted_squared_diff = squared_euclidean_distance(z_rot, centers_i.detach(), weights=subspace_betas[i, :])
+            weighted_squared_diff /= z_rot.shape[0]
+
+            if overwrite_assignments:
+                assignments = weighted_squared_diff.detach().argmin(1)
+                one_hot_mask = int_to_one_hot(assignments, centers_i.shape[0])
+                assignment_matrix_dict[i] = one_hot_mask
+            else:
+                one_hot_mask = assignment_matrix_dict[i]
+
+            if (batch_label_data is not None) and (len(centers_i) > 1) and (epoch_i < 20):
+                # find which label belongs to which cluster center -> for now we just force the centers to get the right
+                # ordering as well -> lets see what happens if we use unlabeled init
+                """
+                detached_weighted_sq_diff = weighted_squared_diff.detach()
+                current_labels_mask = (batch_label_data != -1).int()
+                labeled_weigthed_sq_diff = detached_weighted_sq_diff[current_labels_mask == 1]
+                only_labeld_labels = batch_label_data[current_labels_mask == 1]
+                only_labeld_labels_one_hot = int_to_one_hot(only_labeld_labels, centers_i.shape[0])
+                awhat = labeled_weigthed_sq_diff * only_labeld_labels_one_hot
+                """
+                # assign all labeld points to their correct cluster center even if it is not the closest.
+                # -> in the beginning assign them all to the correct one later be less strict, allow flexibility..
+                current_labels_mask = (batch_label_data != -1).int()
+                only_labeld_labels = batch_label_data[current_labels_mask == 1]
+                only_labeld_labels_one_hot = int_to_one_hot(only_labeld_labels, centers_i.shape[0])
+                one_hot_mask[current_labels_mask == 1] = only_labeld_labels_one_hot
+            weighted_squared_diff_masked = weighted_squared_diff * one_hot_mask
+            subspace_losses += weighted_squared_diff_masked.sum()
+
+        subspace_losses = subspace_losses / subspace_betas.shape[0]
+        return subspace_losses, z_rot, z_rot_back, assignment_matrix_dict
+
+    def fit(self, trainloader: torch.utils.data.DataLoader, evalloader: torch.utils.data.DataLoader,
+            optimizer: torch.optim.Optimizer, max_epochs: int, model: torch.nn.Module,
+            batch_size: int, loss_fn: torch.nn.modules.loss._Loss = torch.nn.MSELoss(),
+            device: torch.device = torch.device("cpu"), print_step: int = 5, debug: bool = True,
+            scheduler: torch.optim.lr_scheduler = None, fix_rec_error: bool = False,
+            tolerance_threshold: float = None, data: torch.Tensor = None, y: torch.Tensor = None) -> (torch.nn.Module, '_ENRC_Module'):
+        """
+        Trains ENRC and the autoencoder in place.
+
+        Parameters
+        ----------
+        trainloader : torch.utils.data.DataLoader
+            dataloader to be used for training
+        evalloader : torch.utils.data.DataLoader
+            Evalloader is used for checking label change
+        optimizer : torch.optim.Optimizer
+            parameterized optimizer to be used
+        max_epochs : int
+            maximum number of epochs for training
+        model : torch.nn.Module
+            The underlying autoencoder
+        batch_size: int
+            batch size for dataloader
+        loss_fn : torch.nn.modules.loss._Loss
+            loss function to be used for reconstruction (default: torch.nn.MSELoss())
+        device : torch.device
+            device to be trained on (default: torch.device('cpu'))
+        print_step : int
+            specifies how often the losses are printed (default: 5)
+        debug : bool
+            if True than training errors will be printed (default: True)
+        scheduler : torch.optim.lr_scheduler
+            parameterized learning rate scheduler that should be used (default: None)
+        fix_rec_error : bool
+            if set to True than reconstruction loss is weighted proportionally to the cluster loss. Only used for init='sgd' (default: False)
+        tolerance_threshold : float
+            tolerance threshold to determine when the training should stop. If the NMI(old_labels, new_labels) >= (1-tolerance_threshold)
+            for all clusterings then the training will stop before max_epochs is reached. If set high than training will stop earlier then max_epochs, and if set to 0 or None the training
+            will train as long as max_epochs (default: None)
+        data : torch.Tensor / np.ndarray
+            dataset to be used for training (default: None)
+        Returns
+        -------
+        tuple : (torch.nn.Module, _ENRC_Module)
+            trained autoencoder,
+            trained enrc module
+        """
+
+        # Deactivate Batchnorm and dropout
+        model.eval()
+        model.to(device)
+        self.to_device(device)
+        print("y", y)
+        self.classifier
+
+        if trainloader is None and data is not None:
+            trainloader = get_dataloader(data, batch_size=batch_size, shuffle=True, drop_last=True)
+        elif trainloader is None and data is None:
+            raise ValueError("trainloader and data cannot be both None.")
+        if evalloader is None and data is not None:
+            # Evalloader is used for checking label change. Only difference to the trainloader here is that shuffle=False.
+            evalloader = get_dataloader(data, batch_size=batch_size, shuffle=False, drop_last=False)
+
+        if fix_rec_error:
+            if debug: print("Calculate initial reconstruction error")
+            _, _, init_rec_loss = enrc_encode_decode_batchwise_with_loss(V=self.V, centers=self.centers, model=model, dataloader=evalloader, device=device, loss_fn=loss_fn)
+            # For numerical stability we add a small number
+            init_rec_loss += 1e-8
+            if debug: print("Initial reconstruction error is ", init_rec_loss)
+        i = 0
+        labels_old = None
+        for epoch_i in range(max_epochs):
+            for batch in trainloader:
+                if self.augmentation_invariance:
+                    batch_data_aug = batch[1].to(device)
+                    batch_data = batch[2].to(device)
+                else:
+                    batch_data = batch[1].to(device)
+                batch_label_data = batch[-1].to(device)
+
+                assert batch_label_data.shape != batch_data.shape, "no label data was passed from dataloader"
+
+                z = model.encode(batch_data)
+                subspace_loss, z_rot, z_rot_back, assignment_matrix_dict = self(z, batch_label_data=batch_label_data,
+                                                                                epoch_i=epoch_i)
                 reconstruction = model.decode(z_rot_back)
                 rec_loss = loss_fn(reconstruction, batch_data)
 

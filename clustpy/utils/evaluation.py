@@ -205,7 +205,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
     algo_names = [a.name for a in evaluation_algorithms]
     metric_names = [] if evaluation_metrics is None else [m.name for m in evaluation_metrics]
     if X_test is not None:
-        metric_names += [mn + "_TEST" for mn in metric_names]
+        metric_names += [mn + "-TEST" for mn in metric_names]
     # Add additional columns
     if add_runtime:
         metric_names += ["runtime"]

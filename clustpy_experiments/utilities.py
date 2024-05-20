@@ -51,12 +51,10 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
         labels_train = None
     # Get autoencoders for DC algortihms
     for data_name_orig, data_loader in dataset_loaders:
-        data_name_exp = data_name_orig + "_" + experiment_name
-        if train_labels_percent is not None:
-            data_name_exp = data_name_orig + "_" + experiment_name + "_" + str(train_labels_percent)
         data_loader_params = inspect.getfullargspec(data_loader).args
         flatten = (ae_class != ConvolutionalAutoencoder and not augmentation)
         train_subset = "train" if train_test_split else "all"
+        data_name_exp = data_name_orig + "_" + experiment_name + "_" + train_subset
         if augmentation:
             assert flatten == False, "If augmentation is used, flatten must be false"
             # Normalization happens within the augmentation dataloader
@@ -165,7 +163,7 @@ def _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch
                                                                      train_labels_percent)
     evaluation_algorithms = get_evaluation_algorithmns_function(n_clustering_epochs, embedding_size, batch_size,
                                                                 optimizer_class, loss_fn, augmentation)
-
+    experiment_name = experiment_name + "_" + str(train_labels_percent)
     evaluate_multiple_datasets(evaluation_datasets, evaluation_algorithms, evaluation_metrics, n_repetitions,
                                add_runtime=True, add_n_clusters=False,
                                save_path=save_dir + experiment_name + "/Results/result.csv",

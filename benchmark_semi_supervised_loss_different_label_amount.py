@@ -14,8 +14,8 @@ from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_module import _ENRC_M
 from clustpy.deep.semisupervised_enrc.semi_supervised_clustering_modules import _Label_Loss_Module_based_on_ENRC_delayed
 from clustpy.deep.semisupervised_enrc.semi_supervised_fitting_procedures import enrc_fitting_with_labels
 
-DOWNLOAD_PATH = "Downloaded_datasets"
-SAVE_DIR = "MyBenchmark_Semi_loss_diff_label/"
+DOWNLOAD_PATH = "Downloaded_datasets/"
+SAVE_DIR = "SSVACeDeC_loss_train_test_diff_label_fix/"
 
 
 def _get_dataset_loaders():
@@ -44,7 +44,7 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "embedding_size": embedding_size, "augmentation_invariance": augmentation,
                              "final_reclustering": True}),
 
-        EvaluationAlgorithm("My_A_loss_simplest_init", My_ACeDeC,
+        EvaluationAlgorithm("SemiACeDeC", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
                              "init_subsample_size": 10000,
@@ -57,7 +57,7 @@ def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, 
                              "fit_function": fit_function,
                              "reclustering_strategy": "acedec"}, ),
 
-        EvaluationAlgorithm("My_A_loss", My_ACeDeC,
+        EvaluationAlgorithm("SemiACeDeCwithoutsimpleinit", My_ACeDeC,
                             {"n_clusters": None, "batch_size": batch_size, "clustering_epochs": n_clustering_epochs,
                              "optimizer_class": optimizer_class,
                              "init_subsample_size": 10000,
