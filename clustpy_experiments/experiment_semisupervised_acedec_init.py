@@ -99,7 +99,7 @@ def experiment_semi_init_small_ff_multiple_label_percent_aug(datasets, algorithm
                                           optimizer_class=torch.optim.Adam,
                                           pretrain_optimizer_params={"lr": 1e-3}, loss_fn=torch.nn.MSELoss(),
                                           other_ae_params={}):
-    experiment_base_name = "small_ff"  # decides which autoencoders to use
+    experiment_base_name = "small_ff_aug"  # decides which autoencoders to use
     embedding_size = 10
     ae_layers = [512, 256, 128]
     ae_class = FeedforwardAutoencoder

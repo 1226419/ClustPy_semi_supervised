@@ -104,6 +104,8 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             if ae_class != ConvolutionalAutoencoder:
                 # understand and then fix augmentation
                 layers = [data[0].size] + ae_layers
+                if augmentation:
+                    layers = [data.size()[3]*data.size()[2]] + ae_layers
                 ae_params = dict(**other_ae_params, **{"layers": layers})
             else:
                 ae_params = dict(**other_ae_params, **{"fc_layers": ae_layers, "input_height": data.shape[-1]})
