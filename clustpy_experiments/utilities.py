@@ -87,7 +87,8 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             if not os.path.isdir(save_dir + "{0}/DLs".format(data_name_exp)):
                 os.makedirs(save_dir + "{0}/DLs".format(data_name_exp))
             save_path_dl1_aug = save_dir + "{0}/DLs/dl_aug.pth".format(data_name_exp)
-            dataloader, orig_dataloader = _get_dataloader_with_augmentation(data, batch_size, flatten, data_name_orig)
+            dataloader, orig_dataloader = _get_dataloader_with_augmentation(data, batch_size, flatten, data_name_orig,
+                                                                            additional_datasets=labels_train)
             if not os.path.isfile(save_path_dl1_aug):
                 torch.save(dataloader, save_path_dl1_aug)
             save_path_dl1_orig = save_dir + "{0}/DLs/dl_orig.pth".format(data_name_exp)
@@ -95,7 +96,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
                 torch.save(orig_dataloader, save_path_dl1_orig)
             path_custom_dataloaders = (save_path_dl1_aug, save_path_dl1_orig)
         else:
-            dataloader = get_dataloader(data, batch_size, shuffle=True)
+            dataloader = get_dataloader(data, batch_size, shuffle=True, additional_datasets=labels_train)
             path_custom_dataloaders = None
         evaluation_autoencoders = []
         for i in range(n_repetitions):
@@ -174,7 +175,8 @@ def _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch
                                save_labels_path=save_dir + experiment_name + "/Labels/label.csv")
 
 
-def _get_dataloader_with_augmentation(data: np.ndarray, batch_size: int, flatten: int, data_name: str):
+def _get_dataloader_with_augmentation(data: np.ndarray, batch_size: int, flatten: int, data_name: str,
+                                      additional_datasets: list):
     data = torch.tensor(data)
     data /= 255.0
     channel_means = data.mean([0, 2, 3])
@@ -213,9 +215,16 @@ def _get_dataloader_with_augmentation(data: np.ndarray, batch_size: int, flatten
     aug_transforms = torchvision.transforms.Compose(transform_list)
     orig_transforms = torchvision.transforms.Compose(orig_transform_list)
     # pass transforms to dataloader
-    aug_dl = get_dataloader(data, batch_size=batch_size, shuffle=True,
-                            ds_kwargs={"aug_transforms_list": [aug_transforms],
-                                       "orig_transforms_list": [orig_transforms]})
-    orig_dl = get_dataloader(data, batch_size=batch_size, shuffle=False,
-                             ds_kwargs={"orig_transforms_list": [orig_transforms]})
+    if additional_datasets is not None:
+        aug_dl = get_dataloader(data, batch_size=batch_size, shuffle=True, additional_inputs=additional_datasets,
+                                ds_kwargs={"aug_transforms_list": [aug_transforms, None],
+                                           "orig_transforms_list": [orig_transforms, None]})
+        orig_dl = get_dataloader(data, batch_size=batch_size, shuffle=False, additional_inputs=additional_datasets,
+                                 ds_kwargs={"orig_transforms_list": [orig_transforms, None]})
+    else:
+        aug_dl = get_dataloader(data, batch_size=batch_size, shuffle=True,
+                                ds_kwargs={"aug_transforms_list": [aug_transforms],
+                                           "orig_transforms_list": [orig_transforms]})
+        orig_dl = get_dataloader(data, batch_size=batch_size, shuffle=False,
+                                 ds_kwargs={"orig_transforms_list": [orig_transforms]})
     return aug_dl, orig_dl

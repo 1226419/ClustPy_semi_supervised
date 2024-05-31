@@ -11,7 +11,7 @@ from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init import (semi_sup
 from clustpy_experiments.experiment_semisupervised_acedec_init import experiment_semi_init_big_feedforward_multiple_label_percent
 from clustpy.deep.semisupervised_enrc.semi_supervised_acedec import ACeDeC as My_ACeDeC
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_module import _ENRC_Module
-from clustpy.deep.semisupervised_enrc.semi_supervised_clustering_modules import _Label_Loss_Module_based_on_ENRC_delayed
+from clustpy.deep.semisupervised_enrc.semi_supervised_clustering_modules import _Label_Loss_Module_based_on_ENRC
 from clustpy.deep.semisupervised_enrc.semi_supervised_fitting_procedures import enrc_fitting_with_labels
 
 DOWNLOAD_PATH = "Downloaded_datasets/"
@@ -28,7 +28,7 @@ def _get_dataset_loaders():
 def _get_evaluation_algorithms(n_clustering_epochs, embedding_size, batch_size, optimizer_class, loss_fn,
                                augmentation=False):
 
-    clustering_module = _Label_Loss_Module_based_on_ENRC_delayed
+    clustering_module = _Label_Loss_Module_based_on_ENRC
     fit_function = enrc_fitting_with_labels
     scheduler = torch.optim.lr_scheduler.StepLR
     scheduler_params = {"step_size": int(0.2 * n_clustering_epochs), "gamma": 0.5, "verbose": True}

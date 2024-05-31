@@ -86,7 +86,7 @@ def experiment_semi_init_big_feedforward_multiple_label_percent(datasets, algori
     ae_class = FeedforwardAutoencoder
     labels_percent_list = [1, 5, 10, 15, 20, 50, 100]
     for labels in labels_percent_list:
-        experiment_name = experiment_base_name # + "_" + str(labels)
+        experiment_name = experiment_base_name  # + "_" + str(labels)
         _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch_size,
                     n_pretrain_epochs, n_clustering_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
                     ae_class, other_ae_params, datasets, algorithms_function, metrics, save_dir, download_path,
@@ -106,7 +106,7 @@ def experiment_semi_init_small_ff_multiple_label_percent_aug(datasets, algorithm
     labels_percent_list = [10]
     augmentation = True
     for labels in labels_percent_list:
-        experiment_name = experiment_base_name # + "_" + str(labels)
+        experiment_name = experiment_base_name  # + "_" + str(labels)
         _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch_size,
                     n_pretrain_epochs, n_clustering_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
                     ae_class, other_ae_params, datasets, algorithms_function, metrics, save_dir, download_path,
