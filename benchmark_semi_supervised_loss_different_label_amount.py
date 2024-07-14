@@ -15,7 +15,7 @@ from clustpy.deep.semisupervised_enrc.semi_supervised_clustering_modules import 
 from clustpy.deep.semisupervised_enrc.semi_supervised_fitting_procedures import enrc_fitting_with_labels
 
 DOWNLOAD_PATH = "Downloaded_datasets/"
-SAVE_DIR = "SSVACeDeC_loss_train_test_diff_label_fix/"
+SAVE_DIR = "SSVACeDeC_loss_train_test_diff_label/"
 
 def _get_dataset_loaders():
     datasets = [

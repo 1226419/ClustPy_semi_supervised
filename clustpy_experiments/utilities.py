@@ -96,7 +96,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
                 torch.save(orig_dataloader, save_path_dl1_orig)
             path_custom_dataloaders = (save_path_dl1_aug, save_path_dl1_orig)
         else:
-            dataloader = get_dataloader(data, batch_size, shuffle=True, additional_datasets=labels_train)
+            dataloader = get_dataloader(data, batch_size, shuffle=True, additional_inputs=labels_train)
             path_custom_dataloaders = None
         evaluation_autoencoders = []
         for i in range(n_repetitions):
@@ -111,6 +111,7 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             else:
                 ae_params = dict(**other_ae_params, **{"fc_layers": ae_layers, "input_height": data.shape[-1]})
             if not os.path.isfile(save_path_ae):
+                print("save_path_ae", save_path_ae)
                 ae = ae_class(**ae_params).to(device)
                 ae.fit(n_pretrain_epochs, pretrain_optimizer_params, batch_size, dataloader=dataloader,
                        optimizer_class=optimizer_class,

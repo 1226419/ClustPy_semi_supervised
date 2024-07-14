@@ -69,6 +69,8 @@ class _ClustpyDataset(torch.utils.data.Dataset):
                     aug_transforms_i = self.aug_transforms_list[i]
                     if aug_transforms_i is not None:
                         aug_list.append(aug_transforms_i(tensor[index]))
+                    else:
+                        aug_list.append(tensor[index])
 
                 if self.orig_transforms_list is not None:
                     # apply preprocessing

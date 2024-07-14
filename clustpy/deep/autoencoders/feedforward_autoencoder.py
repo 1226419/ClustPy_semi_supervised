@@ -91,6 +91,9 @@ class FeedforwardAutoencoder(_AbstractAutoencoder):
         embedded : torch.Tensor
             the embedded data point with dimensionality embedding_size
         """
+        if x.shape[1] != self.encoder.layers[
+            0]:
+            print("sus")
         assert x.shape[1] == self.encoder.layers[
             0], "Input layer of the encoder ({0}) does not match input sample ({1})".format(self.encoder.layers[0],
                                                                                             x.shape[1])
