@@ -105,9 +105,9 @@ def experiment_semi_init_small_ff_multiple_label_percent_aug(datasets, algorithm
     ae_class = FeedforwardAutoencoder
     labels_percent_list = [10]
     augmentation = True
-    for labels in labels_percent_list:
-        experiment_name = experiment_base_name  # + "_" + str(labels)
-        _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch_size,
-                    n_pretrain_epochs, n_clustering_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
-                    ae_class, other_ae_params, datasets, algorithms_function, metrics, save_dir, download_path,
-                    train_labels_percent=labels, train_test_split=True, augmentation=augmentation)
+
+    experiment_name = experiment_base_name  # + "_" + str(labels)
+    _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch_size,
+                n_pretrain_epochs, n_clustering_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
+                ae_class, other_ae_params, datasets, algorithms_function, metrics, save_dir, download_path,
+                train_labels_percent=labels_percent_list, train_test_split=True, augmentation=augmentation)

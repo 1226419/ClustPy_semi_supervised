@@ -9,6 +9,7 @@ from clustpy.utils import EvaluationDataset, EvaluationAutoencoder, evaluate_mul
 from sklearn.utils.validation import check_random_state
 import inspect
 import torchvision
+from typing import Union
 
 
 def _standardize(data, mean=None, std=None):
@@ -153,22 +154,36 @@ def _experiment(experiment_name, ae_layers, embedding_size, n_repetitions, batch
                 n_pretrain_epochs, n_clustering_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
                 ae_class, other_ae_params, dataset_loaders, get_evaluation_algorithmns_function, evaluation_metrics,
                 save_dir, download_path,
-                augmentation=False, train_test_split=False, train_labels_percent: int = None):
+                augmentation=False, train_test_split=False, train_labels_percent: Union[int, list] = None):
     ae_layers = ae_layers.copy()
     ae_layers.append(embedding_size)
     experiment_name = experiment_name + "_" + "_".join(str(x) for x in ae_layers)
 
     device = detect_device()
-    evaluation_datasets = _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, experiment_name,
-                                                                     n_repetitions, batch_size, n_pretrain_epochs,
-                                                                     optimizer_class, pretrain_optimizer_params,
-                                                                     loss_fn, ae_class, other_ae_params,
-                                                                     device, download_path, save_dir,
-                                                                     augmentation, train_test_split,
-                                                                     train_labels_percent)
+    if type(train_labels_percent)==list:
+        evaluation_datasets = []
+        for percentage in train_labels_percent:
+            tmp_evaluation_datasets = _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers,
+                                                                             experiment_name,
+                                                                             n_repetitions, batch_size,
+                                                                             n_pretrain_epochs,
+                                                                             optimizer_class, pretrain_optimizer_params,
+                                                                             loss_fn, ae_class, other_ae_params,
+                                                                             device, download_path, save_dir,
+                                                                             augmentation, train_test_split,
+                                                                             percentage)
+            evaluation_datasets.extend(tmp_evaluation_datasets)
+    else:
+        evaluation_datasets = _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, experiment_name,
+                                                                         n_repetitions, batch_size, n_pretrain_epochs,
+                                                                         optimizer_class, pretrain_optimizer_params,
+                                                                         loss_fn, ae_class, other_ae_params,
+                                                                         device, download_path, save_dir,
+                                                                         augmentation, train_test_split,
+                                                                         train_labels_percent)
     evaluation_algorithms = get_evaluation_algorithmns_function(n_clustering_epochs, embedding_size, batch_size,
                                                                 optimizer_class, loss_fn, augmentation)
-    experiment_name = experiment_name + "_" + str(train_labels_percent)
+    # experiment_name = experiment_name + "_" + str(train_labels_percent)
     evaluate_multiple_datasets(evaluation_datasets, evaluation_algorithms, evaluation_metrics, n_repetitions,
                                add_runtime=True, add_n_clusters=False,
                                save_path=save_dir + experiment_name + "/Results/result.csv",
