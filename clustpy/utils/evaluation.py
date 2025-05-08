@@ -10,7 +10,6 @@ import os
 import inspect
 from sklearn.datasets._base import Bunch
 
-
 def load_saved_autoencoder(path: str, autoencoder_class: torch.nn.Module, params: dict = None) -> torch.nn.Module:
     """
     Load the states of an already trained autoencoder.
@@ -245,6 +244,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                     X_test_processed = X_test
             # Execute the algorithm multiple times
             for rep in range(n_repetitions):
+
                 print("- Iteration {0}".format(rep))
                 # set seed
                 np.random.seed(seeds[rep])
