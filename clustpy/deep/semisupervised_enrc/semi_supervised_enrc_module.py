@@ -469,7 +469,7 @@ class _ENRC_Module(torch.nn.Module):
             run = wandb.init(
                 entity=wandb_entity,
                 project="master thesis",
-                name = ,
+                name = trainloader.dataset,
                 config=read_config(run_setup)
             )
         for epoch_i in range(max_epochs):

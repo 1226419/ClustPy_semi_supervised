@@ -9,6 +9,9 @@ import traceback
 import os
 import inspect
 from sklearn.datasets._base import Bunch
+import os
+import wandb
+from datetime import datetime
 
 def load_saved_autoencoder(path: str, autoencoder_class: torch.nn.Module, params: dict = None) -> torch.nn.Module:
     """
@@ -242,9 +245,22 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 X_processed = X
                 if X_test is not None:
                     X_test_processed = X_test
+            # setup wandb connection for each run -> one run = n_iterations of one algo
+            api_key = os.getenv("WANDB_API_KEY")
+            wandb_entity = os.getenv("WANDB_ENTITY")
+            run = None
+            if api_key is not None:
+                wandb.login(key=api_key)
+                run = wandb.init(
+                    entity=wandb_entity,
+                    project="master thesis outer loop",
+                    name=eval_algo.name + datetime.today().strftime('%Y-%m-%d'),
+                    config=eval_algo.params
+                )
+            wandb_result = {"algorithm": eval_algo.name}
             # Execute the algorithm multiple times
             for rep in range(n_repetitions):
-
+                wandb_result["iteration_number"] = rep
                 print("- Iteration {0}".format(rep))
                 # set seed
                 np.random.seed(seeds[rep])
@@ -293,15 +309,19 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 runtime = time.time() - start_time
                 if add_runtime:
                     df.at[rep, (eval_algo.name, "runtime")] = runtime
+                    wandb_result["runtime"] = runtime
                     print("-- runtime: {0}".format(runtime))
                 if add_n_clusters:
+
                     n_clusters = _get_n_clusters_from_algo(algo_obj)
+                    wandb_result["n_clusters"] = n_clusters
                     df.at[rep, (eval_algo.name, "n_clusters")] = n_clusters
                     print("-- n_clusters: {0}".format(n_clusters))
                 # Optional: Save labels
                 if save_labels_path is not None:
                     save_labels_path_algo = None if save_labels_path is None else "{0}_{1}_{2}.{3}".format(
                         save_labels_path.split(".")[0], eval_algo.name, rep, save_labels_path.split(".")[1])
+                    wandb_result["save_labels_path"] = save_labels_path_algo
                     # Check if directory exists
                     parent_directory = os.path.dirname(save_labels_path_algo)
                     if parent_directory != "" and not os.path.isdir(parent_directory):
@@ -331,13 +351,17 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                                     result_test = eval_metric.method(X_test, labels_predicted_test,
                                                                      **eval_metric.params)
                             df.at[rep, (eval_algo.name, eval_metric.name)] = result
+                            wandb_result[eval_metric.name] = result
                             print("-- {0}: {1}".format(eval_metric.name, result))
                             if X_test is not None and labels_predicted_test is not None:
                                 df.at[rep, (eval_algo.name, eval_metric.name + "_TEST")] = result_test
+                                wandb_result[eval_metric.name+ "_TEST"] = result_test
                                 print("-- {0} (TEST): {1}".format(eval_metric.name, result_test))
+
                         except Exception as e:
                             print("Metric {0} raised an exception and will be skipped".format(eval_metric.name))
                             print(e)
+
                 if eval_algo.deterministic:
                     for element in range(1, n_repetitions):
                         if add_runtime:
@@ -353,6 +377,8 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                                 df.at[element, (eval_algo.name, eval_metric.name + "_TEST")] = df.at[
                                     0, (eval_algo.name, eval_metric.name + "_TEST")]
                     break
+                run.log(wandb_result)
+            run.finish()
         except Exception as e:
             print("Algorithm {0} raised an exception and will be skipped".format(eval_algo.name))
             print(traceback.print_exc())
