@@ -245,22 +245,26 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 X_processed = X
                 if X_test is not None:
                     X_test_processed = X_test
-            # setup wandb connection for each run -> one run = n_iterations of one algo
-            api_key = os.getenv("WANDB_API_KEY")
-            wandb_entity = os.getenv("WANDB_ENTITY")
-            run = None
-            if api_key is not None:
-                wandb.login(key=api_key)
-                run = wandb.init(
-                    entity=wandb_entity,
-                    project="master thesis outer loop",
-                    name=eval_algo.name + datetime.today().strftime('%Y-%m-%d'),
-                    config=eval_algo.params
-                )
-            wandb_result = {"algorithm": eval_algo.name}
+
             # Execute the algorithm multiple times
             for rep in range(n_repetitions):
-                wandb_result["iteration_number"] = rep
+                # setup wandb connection for each run -> one run = n_iterations of one algo
+                api_key = os.getenv("WANDB_API_KEY")
+                wandb_entity = os.getenv("WANDB_ENTITY")
+                run = None
+                if api_key is not None:
+                    wandb.login(key=api_key)
+                    run = wandb.init(
+                        entity=wandb_entity,
+                        project="master thesis outer loop",
+                        name=eval_algo.name + "-" + datetime.today().strftime('%Y-%m-%d') + f"-{str(rep)}",
+                        config=eval_algo.params
+                    )
+                tmp_info = save_labels_path.split("/")[-1].split(".")[0].split("_")
+                run.config.update({"algorithm": eval_algo.name, "iteration_number": rep, "dataset": tmp_info[1],
+                                   "architecture": tmp_info[2]+"-"+tmp_info[3]+"-"+tmp_info[4]+"-"+tmp_info[5]+"-"+tmp_info[6]+"-"+tmp_info[7],
+                                   "number_of_labels":tmp_info[-1]})
+                wandb_result = {}
                 print("- Iteration {0}".format(rep))
                 # set seed
                 np.random.seed(seeds[rep])
@@ -321,7 +325,8 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 if save_labels_path is not None:
                     save_labels_path_algo = None if save_labels_path is None else "{0}_{1}_{2}.{3}".format(
                         save_labels_path.split(".")[0], eval_algo.name, rep, save_labels_path.split(".")[1])
-                    wandb_result["save_labels_path"] = save_labels_path_algo
+                    run.config.update({"save_labels_path_algo": save_labels_path_algo})
+
                     # Check if directory exists
                     parent_directory = os.path.dirname(save_labels_path_algo)
                     if parent_directory != "" and not os.path.isdir(parent_directory):
@@ -378,7 +383,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                                     0, (eval_algo.name, eval_metric.name + "_TEST")]
                     break
                 run.log(wandb_result)
-            run.finish()
+                run.finish()
         except Exception as e:
             print("Algorithm {0} raised an exception and will be skipped".format(eval_algo.name))
             print(traceback.print_exc())
