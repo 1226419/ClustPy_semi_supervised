@@ -463,14 +463,12 @@ class _ENRC_Module(torch.nn.Module):
         import wandb
         api_key = os.getenv("WANDB_API_KEY")
         wandb_entity = os.getenv("WANDB_ENTITY")
-        run = None
+        run_inner = None
         if api_key is not None:
-            wandb.login(key=api_key)
-            run = wandb.init(
+            run_inner = wandb.init(
                 entity=wandb_entity,
                 project="master thesis",
-                name = trainloader.dataset,
-                config=read_config(run_setup)
+                name = trainloader.dataset
             )
         for epoch_i in range(max_epochs):
             for batch in trainloader:
@@ -521,8 +519,8 @@ class _ENRC_Module(torch.nn.Module):
                 with torch.no_grad():
                     # Rotation loss is calculated to check if its deviation from an orthogonal matrix
                     rotation_loss = self.rotation_loss()
-                    if run is not None:
-                        run.log({"Epoch": {epoch_i}/{max_epochs - 1}, "summed_loss": f"{summed_loss.item():.4f}", "subspace_losses": f"{subspace_loss.item():.4f}", "rec_loss": f"{rec_loss.item():.4f}", "rotation_loss": f"{rotation_loss.item():.4f}"})
+                    if run_inner is not None:
+                        run_inner.log({"Epoch": {epoch_i}/{max_epochs - 1}, "summed_loss": f"{summed_loss.item():.4f}", "subspace_losses": f"{subspace_loss.item():.4f}", "rec_loss": f"{rec_loss.item():.4f}", "rotation_loss": f"{rotation_loss.item():.4f}"})
                     if debug:
                         print(f"Epoch {epoch_i}/{max_epochs - 1}: summed_loss: {summed_loss.item():.4f}, subspace_losses: {subspace_loss.item():.4f}, rec_loss: {rec_loss.item():.4f}, rotation_loss: {rotation_loss.item():.4f}")
 
@@ -539,7 +537,7 @@ class _ENRC_Module(torch.nn.Module):
                     break
                 else:
                     labels_old = labels_new.copy()
-        run.finish()
+        run_inner.finish()
         # Extract P and m
         self.P = self.get_P()
         self.m = [len(P_i) for P_i in self.P]

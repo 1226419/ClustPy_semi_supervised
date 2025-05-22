@@ -263,7 +263,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 tmp_info = save_labels_path.split("/")[-1].split(".")[0].split("_")
                 run.config.update({"algorithm": eval_algo.name, "iteration_number": rep, "dataset": tmp_info[1],
                                    "architecture": tmp_info[2]+"-"+tmp_info[3]+"-"+tmp_info[4]+"-"+tmp_info[5]+"-"+tmp_info[6]+"-"+tmp_info[7],
-                                   "number_of_labels":tmp_info[-1]})
+                                   "number_of_labels":tmp_info[-1]}, allow_val_change=True)
                 wandb_result = {}
                 print("- Iteration {0}".format(rep))
                 # set seed
@@ -325,7 +325,7 @@ def evaluate_dataset(X: np.ndarray, evaluation_algorithms: list, evaluation_metr
                 if save_labels_path is not None:
                     save_labels_path_algo = None if save_labels_path is None else "{0}_{1}_{2}.{3}".format(
                         save_labels_path.split(".")[0], eval_algo.name, rep, save_labels_path.split(".")[1])
-                    run.config.update({"save_labels_path_algo": save_labels_path_algo})
+                    run.config.update({"save_labels_path_algo": save_labels_path_algo}, allow_val_change=True)
 
                     # Check if directory exists
                     parent_directory = os.path.dirname(save_labels_path_algo)
