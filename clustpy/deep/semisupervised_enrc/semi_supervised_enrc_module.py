@@ -6,7 +6,7 @@ from clustpy.deep.semisupervised_enrc.helper_functions import _get_P, _rotate, _
      enrc_encode_decode_batchwise_with_loss, enrc_predict_batchwise, _are_labels_equal
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_reclustering_reinit import reinit_centers
 from clustpy.deep.semisupervised_enrc.semi_supervised_enrc_init_betas import beta_weights_init
-
+from datetime import datetime
 
 class _ENRC_Module(torch.nn.Module):
     """
@@ -459,6 +459,7 @@ class _ENRC_Module(torch.nn.Module):
             if debug: print("Initial reconstruction error is ", init_rec_loss)
         i = 0
         labels_old = None
+        """
         import os
         import wandb
         api_key = os.getenv("WANDB_API_KEY")
@@ -468,8 +469,9 @@ class _ENRC_Module(torch.nn.Module):
             run_inner = wandb.init(
                 entity=wandb_entity,
                 project="master thesis",
-                name = trainloader.dataset
-            )
+                name = "inner loop loss " + datetime.now().strftime("%Y-%m-%d %H:%M"),
+                config = {"time_of_inner_loop": datetime.now().strftime("%Y-%m-%d %H:%M")}
+            )"""
         for epoch_i in range(max_epochs):
             for batch in trainloader:
                 if self.augmentation_invariance:
@@ -519,8 +521,8 @@ class _ENRC_Module(torch.nn.Module):
                 with torch.no_grad():
                     # Rotation loss is calculated to check if its deviation from an orthogonal matrix
                     rotation_loss = self.rotation_loss()
-                    if run_inner is not None:
-                        run_inner.log({"Epoch": {epoch_i}/{max_epochs - 1}, "summed_loss": f"{summed_loss.item():.4f}", "subspace_losses": f"{subspace_loss.item():.4f}", "rec_loss": f"{rec_loss.item():.4f}", "rotation_loss": f"{rotation_loss.item():.4f}"})
+                    # run_inner is not None:
+                    #    run_inner.log({"Epoch": {epoch_i}/{max_epochs - 1}, "summed_loss": f"{summed_loss.item():.4f}", "subspace_losses": f"{subspace_loss.item():.4f}", "rec_loss": f"{rec_loss.item():.4f}", "rotation_loss": f"{rotation_loss.item():.4f}"})
                     if debug:
                         print(f"Epoch {epoch_i}/{max_epochs - 1}: summed_loss: {summed_loss.item():.4f}, subspace_losses: {subspace_loss.item():.4f}, rec_loss: {rec_loss.item():.4f}, rotation_loss: {rotation_loss.item():.4f}")
 
@@ -537,7 +539,7 @@ class _ENRC_Module(torch.nn.Module):
                     break
                 else:
                     labels_old = labels_new.copy()
-        run_inner.finish()
+        # run_inner.finish()
         # Extract P and m
         self.P = self.get_P()
         self.m = [len(P_i) for P_i in self.P]
