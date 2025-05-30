@@ -1,3 +1,4 @@
+import logging
 import os
 import numpy as np
 import torch
@@ -46,9 +47,14 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
                                                n_pretrain_epochs, optimizer_class, pretrain_optimizer_params, loss_fn,
                                                ae_class, other_ae_params, device, save_dir, download_path,
                                                augmentation=False, train_test_split=False,
-                                               train_labels_percent: int = None):
+                                               train_labels_percent: int = None, train_labels_absolute_per_class: int = None,
+                                               balanced_training_dataset: bool = True):
+    """
+    train_labels_percent: priority over train_labels_absolute.
+    train_labels_absolute: only gets used if train_labels_percent is None. number of labels per class.
+    """
     evaluation_datasets = []
-    if train_labels_percent is None:
+    if (train_labels_percent is None) and (train_labels_absolute_per_class is None):
         labels_train = None
     # Get autoencoders for DC algortihms
     for data_name_orig, data_loader in dataset_loaders:
@@ -69,14 +75,54 @@ def _get_evaluation_datasets_with_autoencoders(dataset_loaders, ae_layers, exper
             data_mean = np.mean(data)
             data_std = np.std(data)
             data = _standardize(data, data_mean, data_std)
+
+        # make function that randomly selects labels either per class and either percentages or total number of labels.
+        number_of_label_classes = len(np.unique(labels))
+        random_state = np.random.RandomState()  # currently no random state can be given to function #TODO ?
+        # random_state = check_random_state(random_state)
+        # randomly make labels a percentage of labels unlabeled(set label to -1) for training
+        labels_train = np.zeros(labels.shape[0]) - 1
         if train_labels_percent is not None:
-            random_state = np.random.RandomState() # currently no random state can be given to function #TODO ?
-            #random_state = check_random_state(random_state)
-            # randomly make labels a percentage of labels unlabeled(set label to -1) for training
-            labels_train = np.zeros(labels.shape[0]) - 1
-            rand_idx = random_state.choice(labels.shape[0],
-                                           size=round(train_labels_percent*0.01*len(labels)), replace=False)
+            if balanced_training_dataset:
+                rand_idx = []
+                for label_class in np.unique(labels):
+                    number_of_labels_to_pick_from_each_class = round(
+                        train_labels_percent * 0.01 * len(labels) / number_of_label_classes)
+                    class_labels = np.where(labels == label_class)[0]
+                    if number_of_labels_to_pick_from_each_class > len(class_labels):
+                        logging.warning(f"Number of labels to pick from class {label_class} exceeds available labeled "
+                                        f"samples. Adding all available labels from the class to the training set.")
+                        number_of_labels_to_pick_from_each_class = len(class_labels)
+                    rand_idx_tmp = random_state.choice(
+                        class_labels, size=number_of_labels_to_pick_from_each_class, replace=False
+                    )
+                    rand_idx.extend(rand_idx_tmp)
+            else:
+                rand_idx = random_state.choice(labels.shape[0],
+                                               size=round(train_labels_percent * 0.01 * len(labels)), replace=False)
             labels_train[rand_idx] = labels[rand_idx]
+        elif train_labels_absolute_per_class is not None:
+            assert train_labels_absolute_per_class < len(labels), "not enough labels available"
+            random_state = np.random.RandomState()
+
+            if balanced_training_dataset:
+                rand_idx = []
+                for label_class in np.unique(labels):
+                    class_labels = np.where(labels == label_class)[0]
+                    number_of_labels_to_pick_from_each_class = train_labels_absolute_per_class
+                    if train_labels_absolute_per_class > len(class_labels):
+                        logging.warning(f"Number of labels to pick from class {label_class} exceeds available labeled "
+                                        f"samples. Adding all available labels from the class to the training set.")
+                        number_of_labels_to_pick_from_each_class = len(class_labels)
+                    rand_idx_tmp = random_state.choice(
+                        class_labels, size=number_of_labels_to_pick_from_each_class, replace=False
+                    )
+                    rand_idx.extend(rand_idx_tmp)
+            else:
+                rand_idx = random_state.choice(labels.shape[0],
+                                               size=train_labels_absolute_per_class*len(labels.unique()), replace=False)
+            labels_train[rand_idx] = labels[rand_idx]
+
 
 
         # Change data format if conv autoencoder is used
